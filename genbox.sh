@@ -25,6 +25,10 @@ genpasswd() {
     < /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c 16
 }
 
+partitionpath() {
+    printf "%s" "$(sfdisk -l "${DISK}" | awk '/^\/dev/ {print $1}' | grep "${1}$")"
+}
+
 checkroot() {
     if [ "$(id -u)" -ne 0 ]; then
         die "Must be run as root, exiting..."
@@ -184,6 +188,87 @@ runphases() {
     done
 }
 
+phase_wipefs() {
+    info "Wiping disk ${DISK}"
+    wipefs --all --force "${DISK}" > /dev/null 2>&1
+}
+
+phase_partition() {
+    log "Partitioning disk ${DISK}"
+
+    check_for_disk && \
+        sgdisk \
+            --clear \
+            --zap-all \
+            --mbrtogpt \
+            --new=1:0:+"${BIOS_PART_SIZE}" \
+            --typecode=1:EF02 \
+            --new=2:0:+"${EFI_PART_SIZE}" \
+            --typecode=2:EF00 \
+            --new=4:0:+"${SWAP_PART_SIZE}" \
+            --typecode=4:8300 \
+            --new=3:0:+"${ROOT_PART_SIZE}" \
+            --typecode=3:8300 \
+            "${DISK}" \
+        > /dev/null 2>&1
+}
+
+phase_encrypt() {
+    log "Creating LUKS keyfile"
+    mkdir -p "${TMP_DIR}"
+    dd bs=512 count=4 iflag=fullblock status=none \
+        if=/dev/urandom \
+        of="${TMP_DIR}/.crypto_keyfile.bin" \
+    > /dev/null 2>&1
+    chmod 000 "${TMP_DIR}/.crypto_keyfile.bin" > /dev/null 2>&1
+
+    log "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
+    # swap partition
+    printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
+    cryptsetup \
+        --batch-mode \
+        --type luks1 \
+        --cipher aes-xts-plain64 \
+        --key-size 512 \
+        --hash sha512 \
+        --iter-time 100 \
+        --use-random \
+        luksFormat "$(partitionpath 4)" - \
+    > /dev/null 2>&1
+
+    # root partition
+    printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
+    cryptsetup \
+        --batch-mode \
+        --type luks1 \
+        --cipher aes-xts-plain64 \
+        --key-size 512 \
+        --hash sha512 \
+        --iter-time 100 \
+        --use-random \
+        luksFormat "$(partitionpath 3)" - \
+    > /dev/null 2>&1
+
+    log "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
+    # swap partition
+    printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
+    cryptsetup \
+        --verbose \
+        --iter-time 100 \
+        luksAddKey "$(partitionpath 4)" \
+        "${TMP_DIR}/.crypto_keyfile.bin" \
+    > /dev/null 2>&1
+
+    # root partition
+    printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
+    cryptsetup \
+        --verbose \
+        --iter-time 100 \
+        luksAddKey "$(partitionpath 3)" \
+        "/${TMP_DIR}/.crypto_keyfile.bin" \
+    > /dev/null 2>&1
+}
+
 main() {
     args "${@}"
 
@@ -193,6 +278,7 @@ main() {
 
     checkroot
     runphases
+
     cleanup
 }
 
