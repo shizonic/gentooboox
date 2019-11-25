@@ -190,37 +190,36 @@ runphases() {
 
 phase_wipefs() {
     info "Wiping disk ${DISK}"
-    wipefs --all --force "${DISK}" > /dev/null 2>&1
+    wipefs --all --force "${DISK}" > /dev/null 2>&1 || die "Error occured"
 }
 
 phase_partition() {
     log "Partitioning disk ${DISK}"
 
-    check_for_disk && \
-        sgdisk \
-            --clear \
-            --zap-all \
-            --mbrtogpt \
-            --new=1:0:+"${BIOS_PART_SIZE}" \
-            --typecode=1:EF02 \
-            --new=2:0:+"${EFI_PART_SIZE}" \
-            --typecode=2:EF00 \
-            --new=4:0:+"${SWAP_PART_SIZE}" \
-            --typecode=4:8300 \
-            --new=3:0:+"${ROOT_PART_SIZE}" \
-            --typecode=3:8300 \
-            "${DISK}" \
-        > /dev/null 2>&1
+    sgdisk \
+        --clear \
+        --zap-all \
+        --mbrtogpt \
+        --new=1:0:+"${BIOS_PART_SIZE}" \
+        --typecode=1:EF02 \
+        --new=2:0:+"${EFI_PART_SIZE}" \
+        --typecode=2:EF00 \
+        --new=4:0:+"${SWAP_PART_SIZE}" \
+        --typecode=4:8300 \
+        --new=3:0:+"${ROOT_PART_SIZE}" \
+        --typecode=3:8300 \
+        "${DISK}" \
+    > /dev/null 2>&1 || die "Error occured"
 }
 
 phase_encrypt() {
     log "Creating LUKS keyfile"
-    mkdir -p "${TMP_DIR}"
+    mkdir -p "${TMPDIR}"
     dd bs=512 count=4 iflag=fullblock status=none \
         if=/dev/urandom \
-        of="${TMP_DIR}/.crypto_keyfile.bin" \
-    > /dev/null 2>&1
-    chmod 000 "${TMP_DIR}/.crypto_keyfile.bin" > /dev/null 2>&1
+        of="${TMPDIR}/.crypto_keyfile.bin" \
+    > /dev/null 2>&1 || die "Error occured"
+    chmod 000 "${TMPDIR}/.crypto_keyfile.bin" > /dev/null 2>&1 || die "Error occured"
 
     log "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
     # swap partition
@@ -234,7 +233,7 @@ phase_encrypt() {
         --iter-time 100 \
         --use-random \
         luksFormat "$(partitionpath 4)" - \
-    > /dev/null 2>&1
+    > /dev/null 2>&1 || die "Error occured"
 
     # root partition
     printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
@@ -247,7 +246,7 @@ phase_encrypt() {
         --iter-time 100 \
         --use-random \
         luksFormat "$(partitionpath 3)" - \
-    > /dev/null 2>&1
+    > /dev/null 2>&1 || die "Error occured"
 
     log "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
     # swap partition
@@ -256,8 +255,8 @@ phase_encrypt() {
         --verbose \
         --iter-time 100 \
         luksAddKey "$(partitionpath 4)" \
-        "${TMP_DIR}/.crypto_keyfile.bin" \
-    > /dev/null 2>&1
+        "${TMPDIR}/.crypto_keyfile.bin" \
+    > /dev/null 2>&1 || die "Error occured"
 
     # root partition
     printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
@@ -265,8 +264,8 @@ phase_encrypt() {
         --verbose \
         --iter-time 100 \
         luksAddKey "$(partitionpath 3)" \
-        "/${TMP_DIR}/.crypto_keyfile.bin" \
-    > /dev/null 2>&1
+        "/${TMPDIR}/.crypto_keyfile.bin" \
+    > /dev/null 2>&1 || die "Error occured"
 }
 
 main() {
