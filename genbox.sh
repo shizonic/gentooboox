@@ -190,7 +190,7 @@ runphases() {
 
 phase_wipefs() {
     info "Wiping disk ${DISK}"
-    wipefs --all --force "${DISK}" > /dev/null 2>&1 || die "Error occured"
+    wipefs --all --force "${DISK}" > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
 }
 
 phase_partition() {
@@ -209,7 +209,7 @@ phase_partition() {
         --new=3:0:+"${ROOT_PART_SIZE}" \
         --typecode=3:8300 \
         "${DISK}" \
-    > /dev/null 2>&1 || die "Error occured"
+    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
 }
 
 phase_encrypt() {
@@ -218,8 +218,8 @@ phase_encrypt() {
     dd bs=512 count=4 iflag=fullblock status=none \
         if=/dev/urandom \
         of="${TMPDIR}/.crypto_keyfile.bin" \
-    > /dev/null 2>&1 || die "Error occured"
-    chmod 000 "${TMPDIR}/.crypto_keyfile.bin" > /dev/null 2>&1 || die "Error occured"
+    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
+    chmod 000 "${TMPDIR}/.crypto_keyfile.bin" > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
 
     log "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
     # swap partition
@@ -233,7 +233,7 @@ phase_encrypt() {
         --iter-time 100 \
         --use-random \
         luksFormat "$(partitionpath 4)" - \
-    > /dev/null 2>&1 || die "Error occured"
+    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
 
     # root partition
     printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
@@ -246,7 +246,7 @@ phase_encrypt() {
         --iter-time 100 \
         --use-random \
         luksFormat "$(partitionpath 3)" - \
-    > /dev/null 2>&1 || die "Error occured"
+    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
 
     log "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
     # swap partition
@@ -256,7 +256,7 @@ phase_encrypt() {
         --iter-time 100 \
         luksAddKey "$(partitionpath 4)" \
         "${TMPDIR}/.crypto_keyfile.bin" \
-    > /dev/null 2>&1 || die "Error occured"
+    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
 
     # root partition
     printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
@@ -265,7 +265,7 @@ phase_encrypt() {
         --iter-time 100 \
         luksAddKey "$(partitionpath 3)" \
         "/${TMPDIR}/.crypto_keyfile.bin" \
-    > /dev/null 2>&1 || die "Error occured"
+    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
 }
 
 main() {
