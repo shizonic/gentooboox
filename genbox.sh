@@ -59,10 +59,11 @@ Options:
    -P --luks-password <password>          Set LUKS password (same as root password if unset).
    -g --grub-user <grub-user>             Default GRUB user to create (same as user if unset).
    -G --grub-password <grub-password>     Set GRUB password (same as root password if unset).
-   -D --disable-hostonly                  Disable dracut's hostonly (default unset).
    -Y --phases <pase phaseN>              Phases to run (all if unset).
    -B --btrfs-mount <mount-point>         Mount point for btrfs pool.
    -S --system-mount <mount-point>        Mount point for root system.
+   -D --disable-hostonly                  Disable dracut's hostonly (default unset).
+   -V --verbose                           Enable verbose mode and print errors out.
    -h --help                              Show this help.
 _EOF
 }
@@ -73,8 +74,6 @@ WARNING!
 ========
 This will overwrite data on ${DISK} irrevocably.
 
-    BTRFSMOUNT                 "${BTRFSMOUNT}"
-    SYSTEMMOUNT                "${SYSTEMMOUNT}"
     ARCH                       "${ARCH}"
     DISK                       "${DISK}"
     BIOS_PART_SIZE             "${BIOS_PART_SIZE}"
@@ -94,8 +93,11 @@ This will overwrite data on ${DISK} irrevocably.
     GENTOOBOX_LUKS_PASSWORD    "${GENTOOBOX_LUKS_PASSWORD}"
     GENTOOBOX_GRUB_USER        "${GENTOOBOX_GRUB_USER}"
     GENTOOBOX_GRUB_PASSWORD    "${GENTOOBOX_GRUB_PASSWORD}"
-    DISABLE_HOST_ONLY          "${DISABLE_HOST_ONLY}"
     PHASES                     "${PHASES}"
+    BTRFSMOUNT                 "${BTRFSMOUNT}"
+    SYSTEMMOUNT                "${SYSTEMMOUNT}"
+    DISABLE_HOST_ONLY          "${DISABLE_HOST_ONLY}"
+    VERBOSE                    "${VERBOSE}"
 
 Are you sure? (Type uppercase yes):
 _EOF
@@ -109,8 +111,6 @@ _EOF
 defaults() {
     TMPDIR="$(mktemp --directory --suffix ".gentoobox" 2> /dev/null || printf '%s' '/tmp/gentoobox')"
 
-    : "${BTRFSMOUNT:="$(mktemp --directory --suffix=".btrfsroot" --tmpdir="/mnt" 2> /dev/null || printf "%s" "/mnt/gentoobox.btrfsmnt")"}"
-    : "${SYSTEMMOUNT:="$(mktemp --directory --suffix=".systemroot" --tmpdir="/mnt" 2> /dev/null || printf "%s" "/mnt/gentoobox.systemmnt")"}"
     : "${ARCH:="x86_64"}"
     : "${DISK:="/dev/sda"}"
     : "${BIOS_PART_SIZE:="2M"}"
@@ -131,7 +131,10 @@ defaults() {
     : "${GENTOOBOX_GRUB_USER:="${GENTOOBOX_USER}"}"
     : "${GENTOOBOX_GRUB_PASSWORD:="${GENTOOBOX_ROOT_PASSWORD}"}"
     : "${PHASES:="wipefs partition encrypt"}"
+    : "${BTRFSMOUNT:="$(mktemp --directory --suffix=".btrfsroot" --tmpdir="/mnt" 2> /dev/null || printf "%s" "/mnt/gentoobox.btrfsmnt")"}"
+    : "${SYSTEMMOUNT:="$(mktemp --directory --suffix=".systemroot" --tmpdir="/mnt" 2> /dev/null || printf "%s" "/mnt/gentoobox.systemmnt")"}"
     : "${DISABLE_HOST_ONLY:=""}"
+    : "${VERBOSE:=""}"
 }
 
 args() {
@@ -168,6 +171,7 @@ args() {
             -S|--system-mount) param "SYSTEMMOUNT" "${1}" "${2}" ;;
             -Y|--phases) param "PHASES" "${1}" "${2}" ;;
             -D|--disable-hostonly) param "DISABLE_HOST_ONLY" "${1}" "yes" ;;
+            -V|--verbose) param "VERBOSE" "${1}" "yes" ;;
         esac
         shift
     done
@@ -179,18 +183,26 @@ cleanup() {
     for dir in ${TMPDIR} ${BTRFSMOUNT} ${SYSTEMMOUNT}; do
         rm -rf "${dir}"
     done
+
+    if [ "${VERBOSE}" = "yes" ] && [ -n "${err}" ]; then
+        die "${err}"
+    fi
 }
 
 runphases() {
     for phase in ${PHASES}; do
         log "Running: ${phase}"
-        eval "phase_${phase}"
+        if [ "${VERBOSE}" = "yes" ]; then
+            err=$(eval "phase_${phase} 2>&1 > /dev/null")
+        else
+            eval "phase_${phase}" > /dev/null 2>&1
+        fi
     done
 }
 
 phase_wipefs() {
     info "Wiping disk ${DISK}"
-    wipefs --all --force "${DISK}" > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
+    wipefs --all --force "${DISK}"
 }
 
 phase_partition() {
@@ -208,8 +220,7 @@ phase_partition() {
         --typecode=4:8300 \
         --new=3:0:+"${ROOT_PART_SIZE}" \
         --typecode=3:8300 \
-        "${DISK}" \
-    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
+        "${DISK}"
 }
 
 phase_encrypt() {
@@ -217,13 +228,12 @@ phase_encrypt() {
     mkdir -p "${TMPDIR}"
     dd bs=512 count=4 iflag=fullblock status=none \
         if=/dev/urandom \
-        of="${TMPDIR}/.crypto_keyfile.bin" \
-    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
-    chmod 000 "${TMPDIR}/.crypto_keyfile.bin" > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
+        of="${TMPDIR}/.crypto_keyfile.bin"
+    chmod 000 "${TMPDIR}/.crypto_keyfile.bin"
 
     log "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
     # swap partition
-    printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
+    printf "%s" "${GENTOOBOX_LUKS_PASSWORD}" | \
     cryptsetup \
         --batch-mode \
         --type luks1 \
@@ -232,11 +242,10 @@ phase_encrypt() {
         --hash sha512 \
         --iter-time 100 \
         --use-random \
-        luksFormat "$(partitionpath 4)" - \
-    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
+        luksFormat "$(partitionpath 4)" -
 
     # root partition
-    printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
+    printf "%s" "${GENTOOBOX_LUKS_PASSWORD}" | \
     cryptsetup \
         --batch-mode \
         --type luks1 \
@@ -245,27 +254,24 @@ phase_encrypt() {
         --hash sha512 \
         --iter-time 100 \
         --use-random \
-        luksFormat "$(partitionpath 3)" - \
-    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
+        luksFormat "$(partitionpath 3)" -
 
     log "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
     # swap partition
-    printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
+    printf "%s" "${GENTOOBOX_LUKS_PASSWORD}" | \
     cryptsetup \
         --verbose \
         --iter-time 100 \
         luksAddKey "$(partitionpath 4)" \
-        "${TMPDIR}/.crypto_keyfile.bin" \
-    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
+        "${TMPDIR}/.crypto_keyfile.bin"
 
     # root partition
-    printf "%s" "${VOIDBOX_LUKS_PASSWORD}" | \
+    printf "%s" "${GENTOOBOX_LUKS_PASSWORD}" | \
     cryptsetup \
         --verbose \
         --iter-time 100 \
         luksAddKey "$(partitionpath 3)" \
-        "/${TMPDIR}/.crypto_keyfile.bin" \
-    > /dev/null 2>&1 || die "Error occured, cleaning up and exiting."
+        "/${TMPDIR}/.crypto_keyfile.bin"
 }
 
 main() {
@@ -277,8 +283,6 @@ main() {
 
     checkroot
     runphases
-
-    cleanup
 }
 
 main "${@}"
