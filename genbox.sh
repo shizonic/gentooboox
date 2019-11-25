@@ -29,6 +29,101 @@ partitionpath() {
     printf "%s" "$(sfdisk -l "${DISK}" | awk '/^\/dev/ {print $1}' | grep "${1}$")"
 }
 
+opencrypt() {
+    # swap partition
+    cryptsetup \
+        --verbose \
+        --key-file "/${TMPDIR}/.crypt.key" \
+        luksOpen "$(partitionpath 4)" \
+        "cryptswap"
+
+    # root partition
+    cryptsetup \
+        --verbose \
+        --key-file "/${TMPDIR}/.crypt.key" \
+        luksOpen "$(partitionpath 3)" \
+        "cryptroot"
+}
+
+closecrypt() {
+    # swap partition
+    if cryptsetup status "/dev/mapper/cryptswap" > /dev/null 2>&1; then
+        cryptsetup \
+            --verbose \
+            luksClose "cryptswap"
+    fi
+
+    # root partition
+    if cryptsetup status "/dev/mapper/cryptroot" > /dev/null 2>&1; then
+        cryptsetup \
+            --verbose \
+            luksClose "cryptroot"
+    fi
+}
+
+mountsubvol() {
+    mount_opts="compress=lzo,noatime,rw,space_cache,ssd,discard,subvol=${1}"
+
+    # mount root
+    mkdir -p "${2}"
+    if ! mountpoint -q "${2}"; then
+        mount \
+            --types "btrfs" \
+            --options "${mount_opts}" \
+            "/dev/mapper/cryptroot" \
+            "${2}"
+    fi
+}
+
+mountrootfs() {
+    mountsubvol "/subvols/@" "${1}"
+    mountsubvol "/subvols/@boot" "${1}/boot"
+    mountsubvol "/subvols/@home" "${1}/home"
+    mountpseudofs "${1}"
+}
+
+umountrootfs() {
+    unmount "${1}/boot"
+    unmount "${1}/home"
+    unmountpseudofs "${1}"
+    unmount "${1}"
+}
+
+mountpseudofs() {
+    for f in sys dev proc run tmp; do
+        if ! mountpoint -q "${1}/${f}"; then
+            mkdir -p "${1}/${f}"
+            mount --rbind "/${f}" "${1}/${f}"
+            mount --make-rslave "${1}/${f}"
+        fi
+    done
+
+    if ! mountpoint -q "${1}"/etc/resolv.conf; then
+        mkdir -p "${1}/etc"
+        touch "${1}/etc/resolv.conf"
+        mount --bind "/etc/resolv.conf" "${1}/etc/resolv.conf"
+    fi
+
+    if [ -e /sys/firmware/efi/systab ] && ! mountpoint -q "${1}/sys/firmware/efi/efivars"; then
+        mkdir p "${1}/sys/firmware/efi/efivars"
+        mount -t efivarfs efivarfs "${1}/sys/firmware/efi/efivars"
+    fi
+}
+
+unmountpseudofs() {
+    for f in sys dev proc run tmp; do
+        unmount "${1}/${f}"
+    done
+    unmount "${1}/etc/resolv.conf"
+    unmount "${1}/sys/firmware/efi/efivars"
+}
+
+unmount() {
+    if mountpoint -q "${1}"; then
+        umount -R "${1}"
+    fi
+}
+
 checkroot() {
     if [ "$(id -u)" -ne 0 ]; then
         die "Must be run as root, exiting..."
@@ -60,8 +155,7 @@ Options:
    -g --grub-user <grub-user>             Default GRUB user to create (same as user if unset).
    -G --grub-password <grub-password>     Set GRUB password (same as root password if unset).
    -Y --phases <pase phaseN>              Phases to run (all if unset).
-   -B --btrfs-mount <mount-point>         Mount point for btrfs pool.
-   -S --system-mount <mount-point>        Mount point for root system.
+   -M --mountpoint <mount-point>          Mount point for btrfs pool.
    -D --disable-hostonly                  Disable dracut's hostonly (default unset).
    -V --verbose                           Enable verbose mode and print errors out.
    -h --help                              Show this help.
@@ -94,8 +188,7 @@ This will overwrite data on ${DISK} irrevocably.
     GENTOOBOX_GRUB_USER        "${GENTOOBOX_GRUB_USER}"
     GENTOOBOX_GRUB_PASSWORD    "${GENTOOBOX_GRUB_PASSWORD}"
     PHASES                     "${PHASES}"
-    BTRFSMOUNT                 "${BTRFSMOUNT}"
-    SYSTEMMOUNT                "${SYSTEMMOUNT}"
+    MOUNTPOINT                 "${MOUNTPOINT}"
     DISABLE_HOST_ONLY          "${DISABLE_HOST_ONLY}"
     VERBOSE                    "${VERBOSE}"
 
@@ -130,9 +223,8 @@ defaults() {
     : "${GENTOOBOX_LUKS_PASSWORD:="${GENTOOBOX_ROOT_PASSWORD}"}"
     : "${GENTOOBOX_GRUB_USER:="${GENTOOBOX_USER}"}"
     : "${GENTOOBOX_GRUB_PASSWORD:="${GENTOOBOX_ROOT_PASSWORD}"}"
-    : "${PHASES:="wipefs partition encrypt"}"
-    : "${BTRFSMOUNT:="$(mktemp --directory --suffix=".btrfsroot" --tmpdir="/mnt" 2> /dev/null || printf "%s" "/mnt/gentoobox.btrfsmnt")"}"
-    : "${SYSTEMMOUNT:="$(mktemp --directory --suffix=".systemroot" --tmpdir="/mnt" 2> /dev/null || printf "%s" "/mnt/gentoobox.systemmnt")"}"
+    : "${PHASES:="wipefs partition encrypt mkfs btrfs mount"}"
+    : "${MOUNTPOINT:="/mnt/gentoobox"}"
     : "${DISABLE_HOST_ONLY:=""}"
     : "${VERBOSE:=""}"
 }
@@ -167,8 +259,7 @@ args() {
             -P|--luks-password) param "GENTOOBOX_LUKS_PASSWORD" "${1}" "${2}" ;;
             -g|--grub-user) param "GENTOOBOX_GRUB_USER" "${1}" "${2}" ;;
             -G|--grub-password) param "GENTOOBOX_GRUB_PASSWORD" "${1}" "${2}" ;;
-            -B|--btrfs-mount) param "BTRFSMOUNT" "${1}" "${2}" ;;
-            -S|--system-mount) param "SYSTEMMOUNT" "${1}" "${2}" ;;
+            -M|--mountpoint) param "MOUNTPOINT" "${1}" "${2}" ;;
             -Y|--phases) param "PHASES" "${1}" "${2}" ;;
             -D|--disable-hostonly) param "DISABLE_HOST_ONLY" "${1}" "yes" ;;
             -V|--verbose) param "VERBOSE" "${1}" "yes" ;;
@@ -180,7 +271,10 @@ args() {
 }
 
 cleanup() {
-    for dir in ${TMPDIR} ${BTRFSMOUNT} ${SYSTEMMOUNT}; do
+    umountrootfs "${MOUNTPOINT}"
+    closecrypt
+
+    for dir in ${TMPDIR} ${MOUNTPOINT}; do
         rm -rf "${dir}"
     done
 
@@ -191,11 +285,11 @@ cleanup() {
 
 runphases() {
     for phase in ${PHASES}; do
-        log "Running: ${phase}"
+        log "Running phase: ${phase}"
         if [ "${VERBOSE}" = "yes" ]; then
             err=$(eval "phase_${phase} 2>&1 > /dev/null")
         else
-            eval "phase_${phase}" > /dev/null 2>&1
+            eval "phase_${phase} > /dev/null 2>&1"
         fi
     done
 }
@@ -228,8 +322,8 @@ phase_encrypt() {
     mkdir -p "${TMPDIR}"
     dd bs=512 count=4 iflag=fullblock status=none \
         if=/dev/urandom \
-        of="${TMPDIR}/.crypto_keyfile.bin"
-    chmod 000 "${TMPDIR}/.crypto_keyfile.bin"
+        of="${TMPDIR}/.crypt.key"
+    chmod 000 "${TMPDIR}/.crypt.key"
 
     log "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
     # swap partition
@@ -263,7 +357,7 @@ phase_encrypt() {
         --verbose \
         --iter-time 100 \
         luksAddKey "$(partitionpath 4)" \
-        "${TMPDIR}/.crypto_keyfile.bin"
+        "${TMPDIR}/.crypt.key"
 
     # root partition
     printf "%s" "${GENTOOBOX_LUKS_PASSWORD}" | \
@@ -271,7 +365,62 @@ phase_encrypt() {
         --verbose \
         --iter-time 100 \
         luksAddKey "$(partitionpath 3)" \
-        "/${TMPDIR}/.crypto_keyfile.bin"
+        "/${TMPDIR}/.crypt.key"
+}
+
+phase_mkfs() {
+    opencrypt
+
+    log "Creating MS-DOS filesystem for EFI partition ($(partitionpath 2))"
+    mkfs.vfat -F 32 -n "EFI" "$(partitionpath 2)"
+
+    log "Setting up swap area for swap partition (cryptswap)"
+    mkswap \
+        --label swap \
+        "/dev/mapper/cryptswap"
+
+    log "Creating BTRFS filesystem for root partition (cryptroot)"
+    mkfs.btrfs \
+        --force \
+        --label root \
+        "/dev/mapper/cryptroot"
+
+    closecrypt
+}
+
+phase_btrfs() {
+    opencrypt
+    mountsubvol "/" "${MOUNTPOINT}"
+
+    # live subvols
+    mkdir -p "${MOUNTPOINT}/subvols"
+    for subvol in \
+        @ \
+        @boot \
+        @home; do
+        btrfs subvolume create "${MOUNTPOINT}/subvols/${subvol}"
+    done
+
+    # backup subvols
+    mkdir -p "${MOUNTPOINT}/snaps"
+    for subvol in \
+        @ \
+        @home; do
+        btrfs subvolume create "${MOUNTPOINT}/snaps/${subvol}"
+    done
+
+    unmount "${MOUNTPOINT}"
+    closecrypt
+}
+
+phase_mount() {
+    opencrypt
+    mountrootfs "${MOUNTPOINT}"
+}
+
+phase_unmount() {
+    umountrootfs "${MOUNTPOINT}"
+    closecrypt
 }
 
 main() {
