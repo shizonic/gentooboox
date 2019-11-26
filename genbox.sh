@@ -156,8 +156,10 @@ Options:
    -G --grub-password <grub-password>     Set GRUB password (same as root password if unset).
    -Y --phases <pase phaseN>              Phases to run (all if unset).
    -M --mountpoint <mount-point>          Mount point for btrfs pool.
+   -T --tmpdir <tmp-dir>                  Directory for temporary resources.
    -D --disable-hostonly                  Disable dracut's hostonly (default unset).
    -V --verbose                           Enable verbose mode and print errors out.
+   -S --skip-cleanup                      Skip removal of mount and temp directory.
    -h --help                              Show this help.
 _EOF
 }
@@ -189,8 +191,10 @@ This will overwrite data on ${DISK} irrevocably.
     GENTOOBOX_GRUB_PASSWORD    "${GENTOOBOX_GRUB_PASSWORD}"
     PHASES                     "${PHASES}"
     MOUNTPOINT                 "${MOUNTPOINT}"
+    TMPDIR                     "${TMPDIR}"
     DISABLE_HOST_ONLY          "${DISABLE_HOST_ONLY}"
     VERBOSE                    "${VERBOSE}"
+    SKIP_CLEANUP               "${SKIP_CLEANUP}"
 
 Are you sure? (Type uppercase yes):
 _EOF
@@ -202,8 +206,6 @@ _EOF
 }
 
 defaults() {
-    TMPDIR="$(mktemp --directory --suffix ".gentoobox" 2> /dev/null || printf '%s' '/tmp/gentoobox')"
-
     : "${ARCH:="x86_64"}"
     : "${DISK:="/dev/sda"}"
     : "${BIOS_PART_SIZE:="2M"}"
@@ -225,7 +227,9 @@ defaults() {
     : "${GENTOOBOX_GRUB_PASSWORD:="${GENTOOBOX_ROOT_PASSWORD}"}"
     : "${PHASES:="wipefs partition encrypt mkfs btrfs mount"}"
     : "${MOUNTPOINT:="/mnt/gentoobox"}"
+    : "${TMPDIR:="$(mktemp --directory --suffix ".gentoobox" 2> /dev/null || printf '%s' '/tmp/gentoobox')"}"
     : "${DISABLE_HOST_ONLY:=""}"
+    : "${SKIP_CLEANUP:=""}"
     : "${VERBOSE:=""}"
 }
 
@@ -260,9 +264,11 @@ args() {
             -g|--grub-user) param "GENTOOBOX_GRUB_USER" "${1}" "${2}" ;;
             -G|--grub-password) param "GENTOOBOX_GRUB_PASSWORD" "${1}" "${2}" ;;
             -M|--mountpoint) param "MOUNTPOINT" "${1}" "${2}" ;;
+            -T|--tmpdir) param "TMPDIR" "${1}" "${2}" ;;
             -Y|--phases) param "PHASES" "${1}" "${2}" ;;
             -D|--disable-hostonly) param "DISABLE_HOST_ONLY" "${1}" "yes" ;;
             -V|--verbose) param "VERBOSE" "${1}" "yes" ;;
+            -S|--skip-cleanup) param "SKIP_CLEANUP" "${1}" "yes" ;;
         esac
         shift
     done
@@ -274,9 +280,11 @@ cleanup() {
     umountrootfs "${MOUNTPOINT}"
     closecrypt
 
-    for dir in ${TMPDIR} ${MOUNTPOINT}; do
-        rm -rf "${dir}"
-    done
+    if [ ! "${SKIP_CLEANUP}" = "yes" ]; then
+        for dir in ${TMPDIR} ${MOUNTPOINT}; do
+            rm -rf "${dir}"
+        done
+    fi
 
     if [ "${VERBOSE}" = "yes" ] && [ -n "${err}" ]; then
         die "${err}"
