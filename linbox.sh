@@ -128,7 +128,7 @@ checkroot() {
 
 usage() {
     cat <<_EOF
-Usage: genbox.sh [options]
+Usage: linbox.sh [options]
 
 Options:
    -a --arch <arch>                       Set arch to use (x86_64 if unset).
@@ -155,7 +155,7 @@ Options:
    -T --tmpdir <tmp-dir>                  Directory for temporary resources.
    -D --disable-hostonly                  Disable dracut's hostonly (default unset).
    -V --verbose                           Enable verbose mode and print errors out.
-   -S --skip-cleanup                      Skip removal of mount and temp directory.
+   -S --skip-cleanup                      Skip removal of mount/temp directory and do not unmount.
    -h --help                              Show this help.
 _EOF
 }
