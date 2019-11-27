@@ -183,12 +183,12 @@ This will overwrite data on ${DISK} irrevocably.
     XKB_VARIANT                "${XKB_VARIANT}"
     XKB_OPTIONS                "${XKB_OPTIONS}"
     TIMEZONE                   "${TIMEZONE}"
-    GENTOOBOX_ROOT_PASSWORD    "${GENTOOBOX_ROOT_PASSWORD}"
-    GENTOOBOX_USER             "${GENTOOBOX_USER}"
-    GENTOOBOX_USER_PASSWORD    "${GENTOOBOX_USER_PASSWORD}"
-    GENTOOBOX_LUKS_PASSWORD    "${GENTOOBOX_LUKS_PASSWORD}"
-    GENTOOBOX_GRUB_USER        "${GENTOOBOX_GRUB_USER}"
-    GENTOOBOX_GRUB_PASSWORD    "${GENTOOBOX_GRUB_PASSWORD}"
+    LINBOX_ROOT_PASSWORD       "${LINBOX_ROOT_PASSWORD}"
+    LINBOX_USER                "${LINBOX_USER}"
+    LINBOX_USER_PASSWORD       "${LINBOX_USER_PASSWORD}"
+    LINBOX_LUKS_PASSWORD       "${LINBOX_LUKS_PASSWORD}"
+    LINBOX_GRUB_USER           "${LINBOX_GRUB_USER}"
+    LINBOX_GRUB_PASSWORD       "${LINBOX_GRUB_PASSWORD}"
     PHASES                     "${PHASES}"
     MOUNTPOINT                 "${MOUNTPOINT}"
     TMPDIR                     "${TMPDIR}"
@@ -212,22 +212,22 @@ defaults() {
     : "${EFI_PART_SIZE:="512M"}"
     : "${SWAP_PART_SIZE:="$(swapsize)G"}"
     : "${ROOT_PART_SIZE:="0"}"
-    : "${HOSTNAME:="gentoobox"}"
+    : "${HOSTNAME:="linbox"}"
     : "${LOCALE:="en_US.UTF-8"}"
     : "${KEYMAP:="de_CH-latin1"}"
     : "${XKB_LAYOUT:="ch"}"
     : "${XKB_VARIANT:="de_nodeadkeys"}"
     : "${XKB_OPTIONS:=""}"
     : "${TIMEZONE:="Europe/Zurich"}"
-    : "${GENTOOBOX_ROOT_PASSWORD:="$(genpasswd)"}"
-    : "${GENTOOBOX_USER:="user"}"
-    : "${GENTOOBOX_USER_PASSWORD:="${GENTOOBOX_ROOT_PASSWORD}"}"
-    : "${GENTOOBOX_LUKS_PASSWORD:="${GENTOOBOX_ROOT_PASSWORD}"}"
-    : "${GENTOOBOX_GRUB_USER:="${GENTOOBOX_USER}"}"
-    : "${GENTOOBOX_GRUB_PASSWORD:="${GENTOOBOX_ROOT_PASSWORD}"}"
+    : "${LINBOX_ROOT_PASSWORD:="$(genpasswd)"}"
+    : "${LINBOX_USER:="user"}"
+    : "${LINBOX_USER_PASSWORD:="${LINBOX_ROOT_PASSWORD}"}"
+    : "${LINBOX_LUKS_PASSWORD:="${LINBOX_ROOT_PASSWORD}"}"
+    : "${LINBOX_GRUB_USER:="${LINBOX_USER}"}"
+    : "${LINBOX_GRUB_PASSWORD:="${LINBOX_ROOT_PASSWORD}"}"
     : "${PHASES:="wipefs partition encrypt mkfs btrfs mount"}"
-    : "${MOUNTPOINT:="/mnt/gentoobox"}"
-    : "${TMPDIR:="$(mktemp --directory --suffix ".gentoobox" 2> /dev/null || printf '%s' '/tmp/gentoobox')"}"
+    : "${MOUNTPOINT:="/mnt/linbox"}"
+    : "${TMPDIR:="$(mktemp --directory --suffix ".linbox" 2> /dev/null || printf '%s' '/tmp/linbox')"}"
     : "${DISABLE_HOST_ONLY:=""}"
     : "${SKIP_CLEANUP:=""}"
     : "${VERBOSE:=""}"
@@ -257,12 +257,12 @@ args() {
             -X|--xkb-variant) param "XKB_VARIANT" "${1}" "${2}" ;;
             -Z|--xkb-options) param "XKB_OPTIONS" "${1}" "${2}" ;;
             -t|--timezone) param "TIMEZONE" "${1}" "${2}" ;;
-            -p|--password) param "GENTOOBOX_ROOT_PASSWORD" "${1}" "${2}" ;;
-            -u|--user) param "GENTOOBOX_USER" "${1}" "${2}" ;;
-            -U|--user-password) param "GENTOOBOX_USER_PASSWORD" "${1}" "${2}" ;;
-            -P|--luks-password) param "GENTOOBOX_LUKS_PASSWORD" "${1}" "${2}" ;;
-            -g|--grub-user) param "GENTOOBOX_GRUB_USER" "${1}" "${2}" ;;
-            -G|--grub-password) param "GENTOOBOX_GRUB_PASSWORD" "${1}" "${2}" ;;
+            -p|--password) param "LINBOX_ROOT_PASSWORD" "${1}" "${2}" ;;
+            -u|--user) param "LINBOX_USER" "${1}" "${2}" ;;
+            -U|--user-password) param "LINBOX_USER_PASSWORD" "${1}" "${2}" ;;
+            -P|--luks-password) param "LINBOX_LUKS_PASSWORD" "${1}" "${2}" ;;
+            -g|--grub-user) param "LINBOX_GRUB_USER" "${1}" "${2}" ;;
+            -G|--grub-password) param "LINBOX_GRUB_PASSWORD" "${1}" "${2}" ;;
             -M|--mountpoint) param "MOUNTPOINT" "${1}" "${2}" ;;
             -T|--tmpdir) param "TMPDIR" "${1}" "${2}" ;;
             -Y|--phases) param "PHASES" "${1}" "${2}" ;;
@@ -335,7 +335,7 @@ phase_encrypt() {
 
     log "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
     # swap partition
-    printf "%s" "${GENTOOBOX_LUKS_PASSWORD}" | \
+    printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
     cryptsetup \
         --batch-mode \
         --type luks1 \
@@ -347,7 +347,7 @@ phase_encrypt() {
         luksFormat "$(partitionpath 4)" -
 
     # root partition
-    printf "%s" "${GENTOOBOX_LUKS_PASSWORD}" | \
+    printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
     cryptsetup \
         --batch-mode \
         --type luks1 \
@@ -360,7 +360,7 @@ phase_encrypt() {
 
     log "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
     # swap partition
-    printf "%s" "${GENTOOBOX_LUKS_PASSWORD}" | \
+    printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
     cryptsetup \
         --verbose \
         --iter-time 100 \
@@ -368,7 +368,7 @@ phase_encrypt() {
         "${TMPDIR}/.crypt.key"
 
     # root partition
-    printf "%s" "${GENTOOBOX_LUKS_PASSWORD}" | \
+    printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
     cryptsetup \
         --verbose \
         --iter-time 100 \
