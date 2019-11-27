@@ -73,17 +73,15 @@ mountsubvol() {
     fi
 }
 
-mountrootfs() {
+mountsubvols() {
     mountsubvol "/subvols/@" "${1}"
     mountsubvol "/subvols/@boot" "${1}/boot"
     mountsubvol "/subvols/@home" "${1}/home"
-    mountpseudofs "${1}"
 }
 
-umountrootfs() {
+umountsubvols() {
     unmount "${1}/boot"
     unmount "${1}/home"
-    unmountpseudofs "${1}"
     unmount "${1}"
 }
 
@@ -275,10 +273,11 @@ args() {
 }
 
 out() {
-    umountrootfs "${MOUNTPOINT}"
-    closecrypt
-
     if [ ! "${SKIP_CLEANUP}" = "yes" ]; then
+        umountsubvols "${MOUNTPOINT}"
+        unmountpseudofs "${MOUNTPOINT}"
+        closecrypt
+
         for dir in ${TMPDIR} ${MOUNTPOINT}; do
             rm -rf "${dir}"
         done
@@ -415,11 +414,13 @@ phase_btrfs() {
 
 phase_mount() {
     opencrypt
-    mountrootfs "${MOUNTPOINT}"
+    mountsubvols "${MOUNTPOINT}"
+    mountpseudofs "${MOUNTPOINT}"
 }
 
 phase_unmount() {
-    umountrootfs "${MOUNTPOINT}"
+    umountsubvols "${MOUNTPOINT}"
+    unmountpseudofs "${MOUNTPOINT}"
     closecrypt
 }
 
