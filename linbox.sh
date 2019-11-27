@@ -31,33 +31,31 @@ partitionpath() {
 
 opencrypt() {
     # swap partition
-    cryptsetup \
-        --verbose \
-        --key-file "/${TMPDIR}/.crypt.key" \
-        luksOpen "$(partitionpath 4)" \
-        "cryptswap"
+    if ! cryptsetup status "cryptswap" > /dev/null 2>&1; then
+        cryptsetup \
+            --key-file "/${TMPDIR}/.crypt.key" \
+            luksOpen "$(partitionpath 4)" \
+            "cryptswap"
+    fi
 
     # root partition
-    cryptsetup \
-        --verbose \
-        --key-file "/${TMPDIR}/.crypt.key" \
-        luksOpen "$(partitionpath 3)" \
-        "cryptroot"
+    if ! cryptsetup status "cryptroot" > /dev/null 2>&1; then
+        cryptsetup \
+            --key-file "/${TMPDIR}/.crypt.key" \
+            luksOpen "$(partitionpath 3)" \
+            "cryptroot"
+    fi
 }
 
 closecrypt() {
     # swap partition
-    if cryptsetup status "/dev/mapper/cryptswap" > /dev/null 2>&1; then
-        cryptsetup \
-            --verbose \
-            luksClose "cryptswap"
+    if cryptsetup status "cryptswap" > /dev/null 2>&1; then
+        cryptsetup luksClose "cryptswap"
     fi
 
     # root partition
-    if cryptsetup status "/dev/mapper/cryptroot" > /dev/null 2>&1; then
-        cryptsetup \
-            --verbose \
-            luksClose "cryptroot"
+    if cryptsetup status "cryptroot" > /dev/null 2>&1; then
+        cryptsetup luksClose "cryptroot"
     fi
 }
 
@@ -276,7 +274,7 @@ args() {
     unset -f param
 }
 
-cleanup() {
+out() {
     umountrootfs "${MOUNTPOINT}"
     closecrypt
 
@@ -294,11 +292,7 @@ cleanup() {
 runphases() {
     for phase in ${PHASES}; do
         log "Running phase: ${phase}"
-        if [ "${VERBOSE}" = "yes" ]; then
-            err=$(eval "phase_${phase} 2>&1 > /dev/null")
-        else
-            eval "phase_${phase} > /dev/null 2>&1"
-        fi
+        err=$(eval "phase_${phase} 1 > /dev/null")
     done
 }
 
@@ -362,7 +356,6 @@ phase_encrypt() {
     # swap partition
     printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
     cryptsetup \
-        --verbose \
         --iter-time 100 \
         luksAddKey "$(partitionpath 4)" \
         "${TMPDIR}/.crypt.key"
@@ -370,7 +363,6 @@ phase_encrypt() {
     # root partition
     printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
     cryptsetup \
-        --verbose \
         --iter-time 100 \
         luksAddKey "$(partitionpath 3)" \
         "/${TMPDIR}/.crypt.key"
@@ -434,7 +426,7 @@ phase_unmount() {
 main() {
     args "${@}"
 
-    trap 'cleanup' EXIT INT
+    trap 'out' EXIT INT
     defaults
     confirm
 
