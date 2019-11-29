@@ -126,11 +126,28 @@ checkroot() {
 	fi
 }
 
+cmdchroot() {
+    chroot "${MOUNTDIR}" sh -c "${@}"
+}
+
+copychroot() {
+    [ ! -d "${1}" ] && \
+        mkdir -p "${1}"
+    find "${1}" -mindepth 1 -maxdepth 1 -exec \
+        cp  --recursive \
+            --force \
+            --preserve \
+            --no-preserve ownership \
+            -P \
+        {} "${MOUNTDIR}/${2}" \;
+}
+
 usage() {
 	cat <<_EOF
 Usage: linbox.sh [options]
 
 Options:
+   -f --flavor                            Set the distro flavor (gentoo, void, arch).
    -a --arch <arch>                       Set arch to use (x86_64 if unset).
    -d --disk <disk>                       Set disk to partition (/dev/sda if unset).
    -b --bios-part-size <bios-part-size>   Default bios partition size to use (2M if unset).
@@ -166,6 +183,7 @@ WARNING!
 ========
 This will overwrite data on ${DISK} irrevocably.
 
+	FLAVOR                     "${FLAVOR}"
 	ARCH                       "${ARCH}"
 	DISK                       "${DISK}"
 	BIOS_PART_SIZE             "${BIOS_PART_SIZE}"
@@ -202,6 +220,7 @@ _EOF
 }
 
 defaults() {
+	: "${FLAVOR:="gentoo"}"
 	: "${ARCH:="x86_64"}"
 	: "${DISK:="/dev/sda"}"
 	: "${BIOS_PART_SIZE:="2M"}"
@@ -221,7 +240,7 @@ defaults() {
 	: "${LINBOX_LUKS_PASSWORD:="${LINBOX_ROOT_PASSWORD}"}"
 	: "${LINBOX_GRUB_USER:="${LINBOX_USER}"}"
 	: "${LINBOX_GRUB_PASSWORD:="${LINBOX_ROOT_PASSWORD}"}"
-	: "${PHASES:="wipefs partition encrypt mkfs btrfs gentoo"}"
+	: "${PHASES:="wipefs partition encrypt mkfs btrfs preinstall install postinstall"}"
 	: "${MOUNTPOINT:="/mnt/linbox"}"
 	: "${TMPDIR:="$(mktemp --directory --suffix ".linbox" 2> /dev/null || printf '%s' '/tmp/linbox')"}"
 	: "${DISABLE_HOST_ONLY:=""}"
@@ -240,6 +259,7 @@ args() {
 	while [ -n "${1}" ]; do
 		case "${1}" in
 			-h|--help) usage; exit 0 ;;
+			-f|--flavor) param "FLAVOR" "${1}" "${2}" ;;
 			-a|--arch) param "ARCH" "${1}" "${2}" ;;
 			-d|--disk) param "DISK" "${1}" "${2}" ;;
 			-b|--bios-part-size) param "BIOS_PART_SIZE" "${1}" "${2}" ;;
@@ -390,6 +410,7 @@ phase_btrfs() {
 	mountsubvol "/" "${MOUNTPOINT}"
 
 	# live subvols
+    info "Creating BTRFS live subvolumes"
 	mkdir -p "${MOUNTPOINT}/subvols"
 	for subvol in \
 		@ \
@@ -399,6 +420,7 @@ phase_btrfs() {
 	done
 
 	# backup subvols
+    info "Creating BTRFS snapshot subvolumes"
 	mkdir -p "${MOUNTPOINT}/snaps"
 	for subvol in \
 		@ \
@@ -410,73 +432,22 @@ phase_btrfs() {
 	closecrypt
 }
 
-phase_gentoo() {
-	opencrypt
-	mountsubvols "${MOUNTPOINT}"
-
-	info "Retreiving stage 3 tarball"
-	wget --directory "${TMPDIR}" \
-		"http://distfiles.gentoo.org/releases/amd64/autobuilds/20191124T214502Z/stage3-amd64-20191124T214502Z.tar.xz"
-
-
-	info "Extracting stage 3"
-	tar xpvf "${TMPDIR}"/stage3-*.tar.xz \
-		--xattrs-include="*.*" \
-		--numeric-owner \
-		-C "${MOUNTPOINT}"
-
-	mountpseudofs "${MOUNTPOINT}"
-
-	info "Syncing the Gentoo repository"
-	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		source /etc/profile
-		emerge-webrsync
-	_EOL
-
-	info "Setting up users"
-	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		source /etc/profile
-
-		cat <<-_EOP | passwd
-			${LINBOX_ROOT_PASSWORD}
-			${LINBOX_ROOT_PASSWORD}
-		_EOP
-		chsh -s /bin/bash
-
-		useradd -m -s /bin/bash -U \
-			-G wheel,portage,audio,video,usb,cdrom \
-			"${LINBOX_USER}"
-
-		cat <<-_EOP | passwd "${LINBOX_USER}"
-			${LINBOX_USER_PASSWORD}
-			${LINBOX_USER_PASSWORD}
-		_EOP
-	_EOL
-
-	info "Installing required packages"
-	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		echo "sys-apps/systemd cryptsetup" >> /etc/portage/package.use
-		echo "sys-boot/grub device-mapper" >> /etc/portage/package.use
-		echo "sys-fs/cryptsetup static kernel -gcrypt" >> /etc/portage/package.use
-		echo "sys-kernel/genkernel-next cryptsetup" >> /etc/portage/package.use
-		echo "sys-kernel/dracut systemd device-mapper" >> /etc/portage/package.use
-
-		echo "sys-fs/btrfs-progs ~amd64" >> /etc/portage/package.keywords
-        echo "sys-boot/grub:2 ~amd64" >> /etc/portage/package.keywords
-        echo "sys-fs/cryptsetup ~amd64" >> /etc/portage/package.keywords
-        echo "sys-kernel/genkernel-next ~amd64" >> /etc/portage/package.keywords
-        echo "sys-kernel/gentoo-sources ~amd64" >> /etc/portage/package.keywords
-
-        emerge --ask systemd grub:2 cryptsetup genkernel-next btrfs-progs dracut gentoo-sources
-	_EOL
-
-	umountsubvols "${MOUNTPOINT}"
-	unmountpseudofs "${MOUNTPOINT}"
-	closecrypt
+phase_preinstall() {
+    if [ -f "lib/${FLAVOR}/preinstall.sh" ]; then
+        . "lib/${FLAVOR}/preinstall.sh"
+    fi
 }
 
-phase_gento_postinstall() {
-    return
+phase_install() {
+    if [ -f "lib/${FLAVOR}/install.sh" ]; then
+        . "lib/${FLAVOR}/install.sh"
+    fi
+}
+
+phase_postinstall() {
+    if [ -f "lib/${FLAVOR}/postinstall.sh" ]; then
+        . "lib/${FLAVOR}/postinstall.sh"
+    fi
 }
 
 main() {
