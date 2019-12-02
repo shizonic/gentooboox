@@ -120,6 +120,15 @@ unmount() {
 	fi
 }
 
+loopsetup() {
+    dd if=/dev/zero of="${TMPDIR}/disk.img" bs=1G count=5 > /dev/null 2>&1
+    DISK="$(losetup --show -fP "${TMPDIR}/disk.img")"
+}
+
+loopsetdown() {
+    losetup -D
+}
+
 checkroot() {
 	if [ "$(id -u)" -ne 0 ]; then
 		die "Must be run as root, exiting..."
@@ -171,8 +180,10 @@ Options:
    -M --mountpoint <mount-point>          Mount point for btrfs pool.
    -T --tmpdir <tmp-dir>                  Directory for temporary resources.
    -D --disable-hostonly                  Disable dracut's hostonly (default unset).
-   -V --verbose                           Enable verbose mode and print errors out.
    -S --skip-cleanup                      Skip removal of mount/temp directory and do not unmount.
+   -V --verbose                           Enable verbose mode and print errors out.
+   -L --loopback                          Use loopback instead of block device.
+   -B --batchmode                         Skip user confirmations (batch mode).
    -h --help                              Show this help.
 _EOF
 }
@@ -183,40 +194,44 @@ WARNING!
 ========
 This will overwrite data on ${DISK} irrevocably.
 
-	FLAVOR                     "${FLAVOR}"
-	ARCH                       "${ARCH}"
-	DISK                       "${DISK}"
-	BIOS_PART_SIZE             "${BIOS_PART_SIZE}"
-	EFI_PART_SIZE              "${EFI_PART_SIZE}"
-	SWAP_PART_SIZE             "${SWAP_PART_SIZE}"
-	ROOT_PART_SIZE             "${ROOT_PART_SIZE}"
-	HOSTNAME                   "${HOSTNAME}"
-	LOCALE                     "${LOCALE}"
-	KEYMAP                     "${KEYMAP}"
-	XKB_LAYOUT                 "${XKB_LAYOUT}"
-	XKB_VARIANT                "${XKB_VARIANT}"
-	XKB_OPTIONS                "${XKB_OPTIONS}"
-	TIMEZONE                   "${TIMEZONE}"
-	LINBOX_ROOT_PASSWORD       "${LINBOX_ROOT_PASSWORD}"
-	LINBOX_USER                "${LINBOX_USER}"
-	LINBOX_USER_PASSWORD       "${LINBOX_USER_PASSWORD}"
-	LINBOX_LUKS_PASSWORD       "${LINBOX_LUKS_PASSWORD}"
-	LINBOX_GRUB_USER           "${LINBOX_GRUB_USER}"
-	LINBOX_GRUB_PASSWORD       "${LINBOX_GRUB_PASSWORD}"
-	PHASES                     "${PHASES}"
-	MOUNTPOINT                 "${MOUNTPOINT}"
-	TMPDIR                     "${TMPDIR}"
-	DISABLE_HOST_ONLY          "${DISABLE_HOST_ONLY}"
-	VERBOSE                    "${VERBOSE}"
-	SKIP_CLEANUP               "${SKIP_CLEANUP}"
+    FLAVOR                     "${FLAVOR}"
+    ARCH                       "${ARCH}"
+    DISK                       "${DISK}"
+    BIOS_PART_SIZE             "${BIOS_PART_SIZE}"
+    EFI_PART_SIZE              "${EFI_PART_SIZE}"
+    SWAP_PART_SIZE             "${SWAP_PART_SIZE}"
+    ROOT_PART_SIZE             "${ROOT_PART_SIZE}"
+    HOSTNAME                   "${HOSTNAME}"
+    LOCALE                     "${LOCALE}"
+    KEYMAP                     "${KEYMAP}"
+    XKB_LAYOUT                 "${XKB_LAYOUT}"
+    XKB_VARIANT                "${XKB_VARIANT}"
+    XKB_OPTIONS                "${XKB_OPTIONS}"
+    TIMEZONE                   "${TIMEZONE}"
+    LINBOX_ROOT_PASSWORD       "${LINBOX_ROOT_PASSWORD}"
+    LINBOX_USER                "${LINBOX_USER}"
+    LINBOX_USER_PASSWORD       "${LINBOX_USER_PASSWORD}"
+    LINBOX_LUKS_PASSWORD       "${LINBOX_LUKS_PASSWORD}"
+    LINBOX_GRUB_USER           "${LINBOX_GRUB_USER}"
+    LINBOX_GRUB_PASSWORD       "${LINBOX_GRUB_PASSWORD}"
+    PHASES                     "${PHASES}"
+    MOUNTPOINT                 "${MOUNTPOINT}"
+    TMPDIR                     "${TMPDIR}"
+    DISABLE_HOST_ONLY          "${DISABLE_HOST_ONLY}"
+    SKIP_CLEANUP               "${SKIP_CLEANUP}"
+    VERBOSE                    "${VERBOSE}"
+    LOOPBACK                   "${LOOPBACK}"
+    BATCHMODE                  "${BATCHMODE}"
 
 Are you sure? (Type uppercase yes):
 _EOF
 
-	read -r answer
-	if [ ! "${answer}" = "YES" ]; then
-		die "Aborting due to user interaction..."
-	fi
+    if [ ! "${BATCHMODE}" = "yes" ]; then
+	    read -r answer
+        if [ ! "${answer}" = "YES" ]; then
+            die "Aborting due to user interaction..."
+        fi
+    fi
 }
 
 defaults() {
@@ -246,6 +261,13 @@ defaults() {
 	: "${DISABLE_HOST_ONLY:=""}"
 	: "${SKIP_CLEANUP:=""}"
 	: "${VERBOSE:=""}"
+    : "${LOOPBACK:=""}"
+    : "${BATCHMODE:=""}"
+
+    if [ "${LOOPBACK}" = "yes" ]; then
+        log "Preparing loopback device"
+        loopsetup
+    fi
 }
 
 args() {
@@ -283,8 +305,10 @@ args() {
 			-T|--tmpdir) param "TMPDIR" "${1}" "${2}" ;;
 			-Y|--phases) param "PHASES" "${1}" "${2}" ;;
 			-D|--disable-hostonly) param "DISABLE_HOST_ONLY" "${1}" "yes" ;;
-			-V|--verbose) param "VERBOSE" "${1}" "yes" ;;
 			-S|--skip-cleanup) param "SKIP_CLEANUP" "${1}" "yes" ;;
+			-V|--verbose) param "VERBOSE" "${1}" "yes" ;;
+            -L|--loopback) param "LOOPBACK" "${1}" "yes" ;;
+            -B|--batchmode) param "BATCHMODE" "${1}" "yes" ;;
 		esac
 		shift
 	done
@@ -293,6 +317,10 @@ args() {
 }
 
 out() {
+    if [ "${LOOPBACK}" = "yes" ]; then
+        loopsetdown
+    fi
+
 	if [ ! "${SKIP_CLEANUP}" = "yes" ]; then
 		umountsubvols "${MOUNTPOINT}"
 		unmountpseudofs "${MOUNTPOINT}"
@@ -411,22 +439,22 @@ phase_btrfs() {
 
 	# live subvols
     info "Creating BTRFS live subvolumes"
-	mkdir -p "${MOUNTPOINT}/subvols"
-	for subvol in \
-		@ \
-		@boot \
-		@home; do
-		btrfs subvolume create "${MOUNTPOINT}/subvols/${subvol}"
-	done
+    mkdir -p "${MOUNTPOINT}/subvols"
+    for subvol in \
+        @ \
+        @boot \
+        @home; do
+        btrfs subvolume create "${MOUNTPOINT}/subvols/${subvol}"
+    done
 
 	# backup subvols
     info "Creating BTRFS snapshot subvolumes"
-	mkdir -p "${MOUNTPOINT}/snaps"
-	for subvol in \
-		@ \
-		@home; do
-		btrfs subvolume create "${MOUNTPOINT}/snaps/${subvol}"
-	done
+    mkdir -p "${MOUNTPOINT}/snaps"
+    for subvol in \
+        @ \
+        @home; do
+        btrfs subvolume create "${MOUNTPOINT}/snaps/${subvol}"
+    done
 
 	unmount "${MOUNTPOINT}"
 	closecrypt
@@ -454,10 +482,10 @@ main() {
 	args "${@}"
 
 	trap 'out' EXIT INT
-	defaults
-	confirm
 
+    defaults
 	checkroot
+	confirm
 
 	umountsubvols "${MOUNTPOINT}"
 	unmountpseudofs "${MOUNTPOINT}"
