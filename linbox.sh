@@ -272,10 +272,12 @@ defaults() {
 
 args() {
 	param() {
-		[ -n "${3}" ] && {
+		if [ -n "${3}" ]; then
 			eval "${1}=\"${3}\""
 			shift
-		} || die "${2} requires a non-empty option argument"
+		else
+            die "${2} requires a non-empty option argument"
+        fi
 	}
 
 	while [ -n "${1}" ]; do

@@ -12,5 +12,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Run shellcheck on files
+      run: |
+        shopt -s nullglob
+        shellcheck --exclude=SC1090 linbox.sh lib/*/*.sh
     - name: Run test in loopback mode.
       run: sudo ./linbox.sh -e 256M -s 512M -L -p "linbox" --verbose --batchmode
