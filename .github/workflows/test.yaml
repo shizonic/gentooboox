@@ -1,4 +1,4 @@
-name: Test
+name: Testing
 
 on:
   push:
@@ -6,15 +6,21 @@ on:
     - master
 
 jobs:
-  build:
 
+  shellcheck:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v1
-    - name: Run shellcheck on files
+    - name: Run shellcheck on shell scripts.
       run: |
         shopt -s nullglob
         shellcheck --exclude=SC1090 linbox.sh lib/*/*.sh
-    - name: Run test in loopback mode.
+
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Run linbox in loopback mode.
       run: sudo ./linbox.sh -e 256M -s 512M -L -p "linbox" --verbose --batchmode
