@@ -30,22 +30,24 @@ cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
     _EOP
 _EOL
 
-info "Installing required packages"
-cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-    # echo "sys-apps/systemd cryptsetup" >> /etc/portage/package.use
-    echo "sys-boot/grub device-mapper" >> /etc/portage/package.use
-    echo "sys-fs/cryptsetup static kernel -gcrypt" >> /etc/portage/package.use
-    echo "sys-kernel/genkernel-next cryptsetup" >> /etc/portage/package.use
-    # echo "sys-kernel/dracut systemd device-mapper" >> /etc/portage/package.use
+# info "Installing required packages"
+# cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+#     source /etc/profile
 
-    echo "sys-fs/btrfs-progs ~amd64" >> /etc/portage/package.keywords
-    echo "sys-boot/grub:2 ~amd64" >> /etc/portage/package.keywords
-    echo "sys-fs/cryptsetup ~amd64" >> /etc/portage/package.keywords
-    echo "sys-kernel/genkernel-next ~amd64" >> /etc/portage/package.keywords
-    echo "sys-kernel/gentoo-sources ~amd64" >> /etc/portage/package.keywords
+#     # echo "sys-apps/systemd cryptsetup" >> /etc/portage/package.use
+#     echo "sys-boot/grub device-mapper" >> /etc/portage/package.use
+#     echo "sys-fs/cryptsetup static kernel -gcrypt" >> /etc/portage/package.use
+#     echo "sys-kernel/genkernel-next cryptsetup" >> /etc/portage/package.use
+#     # echo "sys-kernel/dracut systemd device-mapper" >> /etc/portage/package.use
 
-    emerge --verbose grub:2 cryptsetup genkernel-next btrfs-progs gentoo-sources
-_EOL
+#     echo "sys-fs/btrfs-progs ~amd64" >> /etc/portage/package.keywords
+#     echo "sys-boot/grub:2 ~amd64" >> /etc/portage/package.keywords
+#     echo "sys-fs/cryptsetup ~amd64" >> /etc/portage/package.keywords
+#     echo "sys-kernel/genkernel-next ~amd64" >> /etc/portage/package.keywords
+#     echo "sys-kernel/gentoo-sources ~amd64" >> /etc/portage/package.keywords
+
+#     emerge --verbose grub:2 cryptsetup genkernel-next btrfs-progs gentoo-sources
+# _EOL
 
 umountsubvols "${MOUNTPOINT}"
 unmountpseudofs "${MOUNTPOINT}"

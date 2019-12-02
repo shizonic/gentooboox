@@ -15,7 +15,7 @@ jobs:
     - name: Run shellcheck on shell scripts.
       run: |
         shopt -s nullglob
-        shellcheck --exclude=SC1090 linbox.sh lib/*/*.sh
+        shellcheck --exclude=SC1090,SC2039 linbox.sh lib/*/*.sh
 
   run:
     runs-on: ubuntu-latest
