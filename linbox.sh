@@ -136,19 +136,17 @@ checkroot() {
 }
 
 cmdchroot() {
-    chroot "${MOUNTDIR}" sh -c "${@}"
+    chroot "${MOUNTPOINT}" sh -c "${@}"
 }
 
 copychroot() {
-    [ ! -d "${1}" ] && \
-        mkdir -p "${1}"
     find "${1}" -mindepth 1 -maxdepth 1 -exec \
         cp  --recursive \
             --force \
             --preserve \
             --no-preserve ownership \
             -P \
-        {} "${MOUNTDIR}/${2}" \;
+        {} "${MOUNTPOINT}/${2}" \;
 }
 
 usage() {
