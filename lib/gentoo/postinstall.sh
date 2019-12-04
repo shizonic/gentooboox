@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 opencrypt
-mountsubvols "${MOUNTPOINT}"
+mountrootfs "${MOUNTPOINT}"
 mountpseudofs "${MOUNTPOINT}"
 
 info "Syncing the Gentoo repository"
@@ -49,6 +49,6 @@ _EOL
 #     emerge --verbose grub:2 cryptsetup genkernel-next btrfs-progs gentoo-sources
 # _EOL
 
-umountsubvols "${MOUNTPOINT}"
+umountrootfs "${MOUNTPOINT}"
 unmountpseudofs "${MOUNTPOINT}"
 closecrypt

@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 opencrypt
-mountsubvols "${MOUNTPOINT}"
+mountrootfs "${MOUNTPOINT}"
 mountpseudofs "${MOUNTPOINT}"
 
 info "Syncing the Gentoo repository"
@@ -108,6 +108,6 @@ cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 _EOL
 
 
-umountsubvols "${MOUNTPOINT}"
+umountrootfs "${MOUNTPOINT}"
 unmountpseudofs "${MOUNTPOINT}"
 closecrypt

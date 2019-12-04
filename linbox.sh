@@ -33,7 +33,7 @@ opencrypt() {
 	# swap partition
 	if ! cryptsetup status "cryptswap" > /dev/null 2>&1; then
 		cryptsetup \
-			--key-file "/${TMPDIR}/.crypt.key" \
+			--key-file "${TMPDIR}/crypt/crypt.key" \
 			luksOpen "$(partitionpath 4)" \
 			"cryptswap"
 	fi
@@ -41,7 +41,7 @@ opencrypt() {
 	# root partition
 	if ! cryptsetup status "cryptroot" > /dev/null 2>&1; then
 		cryptsetup \
-			--key-file "/${TMPDIR}/.crypt.key" \
+			--key-file "${TMPDIR}/crypt/crypt.key" \
 			luksOpen "$(partitionpath 3)" \
 			"cryptroot"
 	fi
@@ -73,13 +73,19 @@ mountsubvol() {
 	fi
 }
 
-mountsubvols() {
+mountrootfs() {
 	mountsubvol "/subvols/@" "${1}"
 	mountsubvol "/subvols/@boot" "${1}/boot"
 	mountsubvol "/subvols/@home" "${1}/home"
+
+    if ! mountpoint -q "${1}/boot/efi"; then
+        mkdir -p "${1}/boot/efi"
+        mount "$(partitionpath 2)" "${1}/boot/efi"
+    fi
 }
 
-umountsubvols() {
+umountrootfs() {
+    unmount "${1}/boot/efi"
 	unmount "${1}/boot"
 	unmount "${1}/home"
 	unmount "${1}"
@@ -116,7 +122,11 @@ unmountpseudofs() {
 
 unmount() {
 	if mountpoint -q "${1}"; then
-		umount -R "${1}"
+		if ! umount -R "${1}"; then
+            fuser -ck -9 "${1}"
+            umount -R -l -f "${1}"
+        fi
+        sync
 	fi
 }
 
@@ -322,7 +332,7 @@ out() {
     fi
 
 	if [ ! "${SKIP_CLEANUP}" = "yes" ]; then
-		umountsubvols "${MOUNTPOINT}"
+		umountrootfs "${MOUNTPOINT}"
 		unmountpseudofs "${MOUNTPOINT}"
 		closecrypt
 
@@ -366,11 +376,11 @@ phase_partition() {
 
 phase_encrypt() {
 	info "Creating LUKS keyfile"
-	mkdir -p "${TMPDIR}"
+	mkdir -p "${TMPDIR}/crypt"
 	dd bs=512 count=4 iflag=fullblock status=none \
 		if=/dev/urandom \
-		of="${TMPDIR}/.crypt.key"
-	chmod 000 "${TMPDIR}/.crypt.key"
+		of="${TMPDIR}/crypt/crypt.key"
+	chmod 000 "${TMPDIR}/crypt/crypt.key"
 
 	info "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
 	# swap partition
@@ -403,14 +413,14 @@ phase_encrypt() {
 	cryptsetup \
 		--iter-time 100 \
 		luksAddKey "$(partitionpath 4)" \
-		"${TMPDIR}/.crypt.key"
+		"${TMPDIR}/crypt/crypt.key"
 
 	# root partition
 	printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
 	cryptsetup \
 		--iter-time 100 \
 		luksAddKey "$(partitionpath 3)" \
-		"/${TMPDIR}/.crypt.key"
+		"/${TMPDIR}/crypt/crypt.key"
 }
 
 phase_mkfs() {
@@ -478,6 +488,18 @@ phase_postinstall() {
     fi
 }
 
+phase_mount() {
+    opencrypt
+    mountrootfs "${MOUNTPOINT}"
+    mountpseudofs "${MOUNTPOINT}"
+}
+
+phase_unmount() {
+    umountrootfs "${MOUNTPOINT}"
+    unmountpseudofs "${MOUNTPOINT}"
+    closecrypt
+}
+
 main() {
 	args "${@}"
 
@@ -487,7 +509,7 @@ main() {
 	checkroot
 	confirm
 
-	umountsubvols "${MOUNTPOINT}"
+	umountrootfs "${MOUNTPOINT}"
 	unmountpseudofs "${MOUNTPOINT}"
 	closecrypt
 

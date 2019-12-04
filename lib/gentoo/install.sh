@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 opencrypt
-mountsubvols "${MOUNTPOINT}"
+mountrootfs "${MOUNTPOINT}"
 
 info "Extracting stage 3"
 tar xpvf "${TMPDIR}"/stage3-*.tar.xz \
@@ -9,5 +9,5 @@ tar xpvf "${TMPDIR}"/stage3-*.tar.xz \
     --numeric-owner \
     -C "${MOUNTPOINT}"
 
-umountsubvols "${MOUNTPOINT}"
+umountrootfs "${MOUNTPOINT}"
 closecrypt

@@ -7,10 +7,13 @@ tar xzfv "${TMPDIR}"/archlinux-bootstrap-*.tar.gz \
     -C "${TMPDIR}"
 
 opencrypt
-mountsubvols "${MOUNTPOINT}"
+mountrootfs "${MOUNTPOINT}"
 
 info "Copying archlinux rootfs"
 copychroot "${TMPDIR}/root.x86_64" "/"
+
+info "Copying crypt.key file"
+copychroot "${TMPDIR}/crypt" "/boot"
 
 info "Removing unused files from rootfs"
 cmdchroot "rm -f /README"
@@ -41,5 +44,5 @@ Server = https://mirror.ungleich.ch/mirror/packages/archlinux/$repo/os/$arch
 _EOL
 
 
-umountsubvols "${MOUNTPOINT}"
+umountrootfs "${MOUNTPOINT}"
 closecrypt
