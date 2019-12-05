@@ -29,6 +29,10 @@ partitionpath() {
 	printf "%s" "$(sfdisk -l "${DISK}" | awk '/^\/dev/ {print $1}' | grep "${1}$")"
 }
 
+deviceuuid() {
+	blkid -s UUID -o value "${1}"
+}
+
 opencrypt() {
 	# swap partition
 	if ! cryptsetup status "cryptswap" > /dev/null 2>&1; then
@@ -50,19 +54,18 @@ opencrypt() {
 closecrypt() {
 	# swap partition
 	if cryptsetup status "cryptswap" > /dev/null 2>&1; then
-		cryptsetup luksClose "cryptswap"
+		cryptsetup luksClose "cryptswap" ||:
 	fi
 
 	# root partition
 	if cryptsetup status "cryptroot" > /dev/null 2>&1; then
-		cryptsetup luksClose "cryptroot"
+		cryptsetup luksClose "cryptroot" ||:
 	fi
 }
 
 mountsubvol() {
 	mount_opts="compress=lzo,noatime,rw,space_cache,ssd,discard,subvol=${1}"
 
-	# mount root
 	mkdir -p "${2}"
 	if ! mountpoint -q "${2}"; then
 		mount \
@@ -78,65 +81,80 @@ mountrootfs() {
 	mountsubvol "/subvols/@boot" "${1}/boot"
 	mountsubvol "/subvols/@home" "${1}/home"
 
-    if ! mountpoint -q "${1}/boot/efi"; then
-        mkdir -p "${1}/boot/efi"
-        mount "$(partitionpath 2)" "${1}/boot/efi"
-    fi
+	if ! mountpoint -q "${1}/boot/efi"; then
+		mkdir -p "${1}/boot/efi"
+		mount "$(partitionpath 2)" "${1}/boot/efi"
+	fi
 }
 
 umountrootfs() {
-    unmount "${1}/boot/efi"
+	unmount "${1}/boot/efi"
 	unmount "${1}/boot"
 	unmount "${1}/home"
 	unmount "${1}"
 }
 
+# mountpseudofs() {
+# 	for f in sys dev proc run tmp; do
+# 		if ! mountpoint -q "${1}/${f}"; then
+# 			mkdir -p "${1}/${f}"
+# 			mount --rbind "/${f}" "${1}/${f}"
+# 			mount --make-rslave "${1}/${f}"
+# 		fi
+# 	done
+
+# 	if ! mountpoint -q "${1}"/etc/resolv.conf; then
+# 		mkdir -p "${1}/etc"
+# 		touch "${1}/etc/resolv.conf"
+# 		mount --bind "/etc/resolv.conf" "${1}/etc/resolv.conf"
+# 	fi
+
+# 	if [ -e /sys/firmware/efi/systab ] && ! mountpoint -q "${1}/sys/firmware/efi/efivars"; then
+# 		mkdir p "${1}/sys/firmware/efi/efivars"
+# 		mount -t efivarfs efivarfs "${1}/sys/firmware/efi/efivars"
+# 	fi
+# }
+
 mountpseudofs() {
-	for f in sys dev proc run tmp; do
-		if ! mountpoint -q "${1}/${f}"; then
-			mkdir -p "${1}/${f}"
-			mount --rbind "/${f}" "${1}/${f}"
-			mount --make-rslave "${1}/${f}"
-		fi
+	for d in proc sys dev dev/pts etc; do
+		mkdir -p "${1}/${d}"
 	done
 
-	if ! mountpoint -q "${1}"/etc/resolv.conf; then
-		mkdir -p "${1}/etc"
-		touch "${1}/etc/resolv.conf"
-		mount --bind "/etc/resolv.conf" "${1}/etc/resolv.conf"
-	fi
+	cp -L "/etc/resolv.conf" "${1}/etc/"
 
-	if [ -e /sys/firmware/efi/systab ] && ! mountpoint -q "${1}/sys/firmware/efi/efivars"; then
-		mkdir p "${1}/sys/firmware/efi/efivars"
+	mountpoint -q "${1}/proc"    || mount -t proc proc "${1}/proc"
+	mountpoint -q "${1}/sys"     || mount -t sysfs sys "${1}/sys"
+	mountpoint -q "${1}/dev"     || mount -o bind /dev "${1}/dev"
+	mountpoint -q "${1}/dev/pts" || mount -t devpts pts "${1}/dev/pts"
+
+	if [ -e "/sys/firmware/efi/systab" ] && ! mountpoint -q "${1}/sys/firmware/efi/efivars"; then
+		mkdir -p "${1}/sys/firmware/efi/efivars"
 		mount -t efivarfs efivarfs "${1}/sys/firmware/efi/efivars"
 	fi
 }
 
 unmountpseudofs() {
-	for f in sys dev proc run tmp; do
-		unmount "${1}/${f}"
+	for d in proc sys dev/pts dev; do
+		unmount "${1}/${d}"
 	done
-	unmount "${1}/etc/resolv.conf"
+	rm -f "${1}/etc/resolv.conf"
 	unmount "${1}/sys/firmware/efi/efivars"
 }
 
 unmount() {
 	if mountpoint -q "${1}"; then
-		if ! umount -R "${1}"; then
-            fuser -ck -9 "${1}"
-            umount -R -l -f "${1}"
-        fi
-        sync
+		umount "${1}" || umount -l "${1}" ||:
+		sync
 	fi
 }
 
 loopsetup() {
-    dd if=/dev/zero of="${TMPDIR}/disk.img" bs=1G count=5 > /dev/null 2>&1
-    DISK="$(losetup --show -fP "${TMPDIR}/disk.img")"
+	dd if=/dev/zero of="${TMPDIR}/disk.img" bs=1G count=5 > /dev/null 2>&1
+	DISK="$(losetup --show -fP "${TMPDIR}/disk.img")"
 }
 
 loopsetdown() {
-    losetup -D
+	losetup -D
 }
 
 checkroot() {
@@ -146,17 +164,17 @@ checkroot() {
 }
 
 cmdchroot() {
-    chroot "${MOUNTPOINT}" sh -c "${@}"
+	chroot "${MOUNTPOINT}" sh -c "${@}"
 }
 
 copychroot() {
-    find "${1}" -mindepth 1 -maxdepth 1 -exec \
-        cp  --recursive \
-            --force \
-            --preserve \
-            --no-preserve ownership \
-            -P \
-        {} "${MOUNTPOINT}/${2}" \;
+	find "${1}" -mindepth 1 -maxdepth 1 -exec \
+		cp  --recursive \
+			--force \
+			--preserve \
+			--no-preserve ownership \
+			-P \
+		{} "${MOUNTPOINT}/${2}" \;
 }
 
 usage() {
@@ -202,44 +220,44 @@ WARNING!
 ========
 This will overwrite data on ${DISK} irrevocably.
 
-    FLAVOR                     "${FLAVOR}"
-    ARCH                       "${ARCH}"
-    DISK                       "${DISK}"
-    BIOS_PART_SIZE             "${BIOS_PART_SIZE}"
-    EFI_PART_SIZE              "${EFI_PART_SIZE}"
-    SWAP_PART_SIZE             "${SWAP_PART_SIZE}"
-    ROOT_PART_SIZE             "${ROOT_PART_SIZE}"
-    HOSTNAME                   "${HOSTNAME}"
-    LOCALE                     "${LOCALE}"
-    KEYMAP                     "${KEYMAP}"
-    XKB_LAYOUT                 "${XKB_LAYOUT}"
-    XKB_VARIANT                "${XKB_VARIANT}"
-    XKB_OPTIONS                "${XKB_OPTIONS}"
-    TIMEZONE                   "${TIMEZONE}"
-    LINBOX_ROOT_PASSWORD       "${LINBOX_ROOT_PASSWORD}"
-    LINBOX_USER                "${LINBOX_USER}"
-    LINBOX_USER_PASSWORD       "${LINBOX_USER_PASSWORD}"
-    LINBOX_LUKS_PASSWORD       "${LINBOX_LUKS_PASSWORD}"
-    LINBOX_GRUB_USER           "${LINBOX_GRUB_USER}"
-    LINBOX_GRUB_PASSWORD       "${LINBOX_GRUB_PASSWORD}"
-    PHASES                     "${PHASES}"
-    MOUNTPOINT                 "${MOUNTPOINT}"
-    TMPDIR                     "${TMPDIR}"
-    DISABLE_HOST_ONLY          "${DISABLE_HOST_ONLY}"
-    SKIP_CLEANUP               "${SKIP_CLEANUP}"
-    VERBOSE                    "${VERBOSE}"
-    LOOPBACK                   "${LOOPBACK}"
-    BATCHMODE                  "${BATCHMODE}"
+	FLAVOR                     "${FLAVOR}"
+	ARCH                       "${ARCH}"
+	DISK                       "${DISK}"
+	BIOS_PART_SIZE             "${BIOS_PART_SIZE}"
+	EFI_PART_SIZE              "${EFI_PART_SIZE}"
+	SWAP_PART_SIZE             "${SWAP_PART_SIZE}"
+	ROOT_PART_SIZE             "${ROOT_PART_SIZE}"
+	HOSTNAME                   "${HOSTNAME}"
+	LOCALE                     "${LOCALE}"
+	KEYMAP                     "${KEYMAP}"
+	XKB_LAYOUT                 "${XKB_LAYOUT}"
+	XKB_VARIANT                "${XKB_VARIANT}"
+	XKB_OPTIONS                "${XKB_OPTIONS}"
+	TIMEZONE                   "${TIMEZONE}"
+	LINBOX_ROOT_PASSWORD       "${LINBOX_ROOT_PASSWORD}"
+	LINBOX_USER                "${LINBOX_USER}"
+	LINBOX_USER_PASSWORD       "${LINBOX_USER_PASSWORD}"
+	LINBOX_LUKS_PASSWORD       "${LINBOX_LUKS_PASSWORD}"
+	LINBOX_GRUB_USER           "${LINBOX_GRUB_USER}"
+	LINBOX_GRUB_PASSWORD       "${LINBOX_GRUB_PASSWORD}"
+	PHASES                     "${PHASES}"
+	MOUNTPOINT                 "${MOUNTPOINT}"
+	TMPDIR                     "${TMPDIR}"
+	DISABLE_HOST_ONLY          "${DISABLE_HOST_ONLY}"
+	SKIP_CLEANUP               "${SKIP_CLEANUP}"
+	VERBOSE                    "${VERBOSE}"
+	LOOPBACK                   "${LOOPBACK}"
+	BATCHMODE                  "${BATCHMODE}"
 
 Are you sure? (Type uppercase yes):
 _EOF
 
-    if [ ! "${BATCHMODE}" = "yes" ]; then
-	    read -r answer
-        if [ ! "${answer}" = "YES" ]; then
-            die "Aborting due to user interaction..."
-        fi
-    fi
+	if [ ! "${BATCHMODE}" = "yes" ]; then
+		read -r answer
+		if [ ! "${answer}" = "YES" ]; then
+			die "Aborting due to user interaction..."
+		fi
+	fi
 }
 
 defaults() {
@@ -269,13 +287,14 @@ defaults() {
 	: "${DISABLE_HOST_ONLY:=""}"
 	: "${SKIP_CLEANUP:=""}"
 	: "${VERBOSE:=""}"
-    : "${LOOPBACK:=""}"
-    : "${BATCHMODE:=""}"
+	: "${LOOPBACK:=""}"
+	: "${BATCHMODE:=""}"
 
-    if [ "${LOOPBACK}" = "yes" ]; then
-        log "Preparing loopback device"
-        loopsetup
-    fi
+	if [ "${LOOPBACK}" = "yes" ]; then
+		log "Preparing loopback device"; {
+			loopsetup
+		}
+	fi
 }
 
 args() {
@@ -284,8 +303,8 @@ args() {
 			eval "${1}=\"${3}\""
 			shift
 		else
-            die "${2} requires a non-empty option argument"
-        fi
+			die "${2} requires a non-empty option argument"
+		fi
 	}
 
 	while [ -n "${1}" ]; do
@@ -317,8 +336,8 @@ args() {
 			-D|--disable-hostonly) param "DISABLE_HOST_ONLY" "${1}" "yes" ;;
 			-S|--skip-cleanup) param "SKIP_CLEANUP" "${1}" "yes" ;;
 			-V|--verbose) param "VERBOSE" "${1}" "yes" ;;
-            -L|--loopback) param "LOOPBACK" "${1}" "yes" ;;
-            -B|--batchmode) param "BATCHMODE" "${1}" "yes" ;;
+			-L|--loopback) param "LOOPBACK" "${1}" "yes" ;;
+			-B|--batchmode) param "BATCHMODE" "${1}" "yes" ;;
 		esac
 		shift
 	done
@@ -327,9 +346,9 @@ args() {
 }
 
 out() {
-    if [ "${LOOPBACK}" = "yes" ]; then
-        loopsetdown
-    fi
+	if [ "${LOOPBACK}" = "yes" ]; then
+		loopsetdown
+	fi
 
 	if [ ! "${SKIP_CLEANUP}" = "yes" ]; then
 		umountrootfs "${MOUNTPOINT}"
@@ -346,99 +365,103 @@ runphases() {
 	[ "${VERBOSE}" = "yes" ] && to="" || to=" > /dev/null 2>&1"
 
 	for phase in ${PHASES}; do
-		log "Running phase: ${phase}"
-		eval "phase_${phase}${to}"
+		log "Running phase: ${phase}"; {
+			eval "phase_${phase}${to}"
+		}
 	done
 }
 
 phase_wipefs() {
-	info "Wiping disk ${DISK}"
-	wipefs --all --force "${DISK}"
+	info "Wiping disk ${DISK}"; {
+		wipefs --all --force "${DISK}"
+	}
 }
 
 phase_partition() {
-	info "Partitioning disk ${DISK}"
-
-	sgdisk \
-		--clear \
-		--zap-all \
-		--mbrtogpt \
-		--new=1:0:+"${BIOS_PART_SIZE}" \
-		--typecode=1:EF02 \
-		--new=2:0:+"${EFI_PART_SIZE}" \
-		--typecode=2:EF00 \
-		--new=4:0:+"${SWAP_PART_SIZE}" \
-		--typecode=4:8300 \
-		--new=3:0:+"${ROOT_PART_SIZE}" \
-		--typecode=3:8300 \
-		"${DISK}"
+	info "Partitioning disk ${DISK}"; {
+		sgdisk \
+			--clear \
+			--zap-all \
+			--mbrtogpt \
+			--new=1:0:+"${BIOS_PART_SIZE}" \
+			--typecode=1:EF02 \
+			--new=2:0:+"${EFI_PART_SIZE}" \
+			--typecode=2:EF00 \
+			--new=4:0:+"${SWAP_PART_SIZE}" \
+			--typecode=4:8300 \
+			--new=3:0:+"${ROOT_PART_SIZE}" \
+			--typecode=3:8300 \
+			"${DISK}"
+	}
 }
 
 phase_encrypt() {
-	info "Creating LUKS keyfile"
-	mkdir -p "${TMPDIR}/crypt"
-	dd bs=512 count=4 iflag=fullblock status=none \
-		if=/dev/urandom \
-		of="${TMPDIR}/crypt/crypt.key"
-	chmod 000 "${TMPDIR}/crypt/crypt.key"
+	info "Creating LUKS keyfile"; {
+		mkdir -p "${TMPDIR}/crypt"
+		dd bs=512 count=4 iflag=fullblock status=none \
+			if=/dev/urandom \
+			of="${TMPDIR}/crypt/crypt.key"
+		chmod 000 "${TMPDIR}/crypt/crypt.key"
+	}
 
-	info "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
-	# swap partition
-	printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
-	cryptsetup \
-		--batch-mode \
-		--type luks1 \
-		--cipher aes-xts-plain64 \
-		--key-size 512 \
-		--hash sha512 \
-		--iter-time 100 \
-		--use-random \
-		luksFormat "$(partitionpath 4)" -
+	info "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"; {
+		printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
+		cryptsetup \
+			--batch-mode \
+			--type luks1 \
+			--cipher aes-xts-plain64 \
+			--key-size 512 \
+			--hash sha512 \
+			--iter-time 100 \
+			--use-random \
+			luksFormat "$(partitionpath 4)" -
 
-	# root partition
-	printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
-	cryptsetup \
-		--batch-mode \
-		--type luks1 \
-		--cipher aes-xts-plain64 \
-		--key-size 512 \
-		--hash sha512 \
-		--iter-time 100 \
-		--use-random \
-		luksFormat "$(partitionpath 3)" -
+		printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
+		cryptsetup \
+			--batch-mode \
+			--type luks1 \
+			--cipher aes-xts-plain64 \
+			--key-size 512 \
+			--hash sha512 \
+			--iter-time 100 \
+			--use-random \
+			luksFormat "$(partitionpath 3)" -
+	}
 
-	info "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
-	# swap partition
-	printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
-	cryptsetup \
-		--iter-time 100 \
-		luksAddKey "$(partitionpath 4)" \
-		"${TMPDIR}/crypt/crypt.key"
+	info "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"; {
+		printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
+		cryptsetup \
+			--iter-time 100 \
+			luksAddKey "$(partitionpath 4)" \
+			"${TMPDIR}/crypt/crypt.key"
 
-	# root partition
-	printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
-	cryptsetup \
-		--iter-time 100 \
-		luksAddKey "$(partitionpath 3)" \
-		"/${TMPDIR}/crypt/crypt.key"
+		printf "%s" "${LINBOX_LUKS_PASSWORD}" | \
+		cryptsetup \
+			--iter-time 100 \
+			luksAddKey "$(partitionpath 3)" \
+			"/${TMPDIR}/crypt/crypt.key"
+	}
 }
 
 phase_mkfs() {
 	opencrypt
 
-	info "Creating MS-DOS filesystem for EFI partition ($(partitionpath 2))"
-	mkfs.vfat -F 32 -n "EFI" "$(partitionpath 2)"
+	info "Creating MS-DOS filesystem for EFI partition ($(partitionpath 2))"; {
+		mkfs.vfat -F 32 -n "EFI" "$(partitionpath 2)"
+	}
 
-	info "Setting up swap area for swap partition (cryptswap)"
-	mkswap \
-		--label swap \
-		"/dev/mapper/cryptswap"
+	info "Setting up swap area for swap partition (cryptswap)"; {
+		mkswap \
+			--label swap \
+			"/dev/mapper/cryptswap"
+	}
 
-	info "Creating BTRFS filesystem for root partition (cryptroot)"
-	mkfs.btrfs \
-		--force \
-		--label root \
-		"/dev/mapper/cryptroot"
+	info "Creating BTRFS filesystem for root partition (cryptroot)"; {
+		mkfs.btrfs \
+			--force \
+			--label root \
+			"/dev/mapper/cryptroot"
+	}
 
 	closecrypt
 }
@@ -447,57 +470,57 @@ phase_btrfs() {
 	opencrypt
 	mountsubvol "/" "${MOUNTPOINT}"
 
-	# live subvols
-    info "Creating BTRFS live subvolumes"
-    mkdir -p "${MOUNTPOINT}/subvols"
-    for subvol in \
-        @ \
-        @boot \
-        @home; do
-        btrfs subvolume create "${MOUNTPOINT}/subvols/${subvol}"
-    done
+	info "Creating BTRFS live subvolumes"; {
+		mkdir -p "${MOUNTPOINT}/subvols"
+		for subvol in \
+			@ \
+			@boot \
+			@home; do
+			btrfs subvolume create "${MOUNTPOINT}/subvols/${subvol}"
+		done
+	}
 
-	# backup subvols
-    info "Creating BTRFS snapshot subvolumes"
-    mkdir -p "${MOUNTPOINT}/snaps"
-    for subvol in \
-        @ \
-        @home; do
-        btrfs subvolume create "${MOUNTPOINT}/snaps/${subvol}"
-    done
+	info "Creating BTRFS snapshot subvolumes"; {
+		mkdir -p "${MOUNTPOINT}/snaps"
+		for subvol in \
+			@ \
+			@home; do
+			btrfs subvolume create "${MOUNTPOINT}/snaps/${subvol}"
+		done
+	}
 
 	unmount "${MOUNTPOINT}"
 	closecrypt
 }
 
 phase_preinstall() {
-    if [ -f "lib/${FLAVOR}/preinstall.sh" ]; then
-        . "lib/${FLAVOR}/preinstall.sh"
-    fi
+	if [ -f "lib/${FLAVOR}/preinstall.sh" ]; then
+		. "lib/${FLAVOR}/preinstall.sh"
+	fi
 }
 
 phase_install() {
-    if [ -f "lib/${FLAVOR}/install.sh" ]; then
-        . "lib/${FLAVOR}/install.sh"
-    fi
+	if [ -f "lib/${FLAVOR}/install.sh" ]; then
+		. "lib/${FLAVOR}/install.sh"
+	fi
 }
 
 phase_postinstall() {
-    if [ -f "lib/${FLAVOR}/postinstall.sh" ]; then
-        . "lib/${FLAVOR}/postinstall.sh"
-    fi
+	if [ -f "lib/${FLAVOR}/postinstall.sh" ]; then
+		. "lib/${FLAVOR}/postinstall.sh"
+	fi
 }
 
 phase_mount() {
-    opencrypt
-    mountrootfs "${MOUNTPOINT}"
-    mountpseudofs "${MOUNTPOINT}"
+	opencrypt
+	mountrootfs "${MOUNTPOINT}"
+	mountpseudofs "${MOUNTPOINT}"
 }
 
 phase_unmount() {
-    umountrootfs "${MOUNTPOINT}"
-    unmountpseudofs "${MOUNTPOINT}"
-    closecrypt
+	umountrootfs "${MOUNTPOINT}"
+	unmountpseudofs "${MOUNTPOINT}"
+	closecrypt
 }
 
 main() {
@@ -505,7 +528,7 @@ main() {
 
 	trap 'out' EXIT INT
 
-    defaults
+	defaults
 	checkroot
 	confirm
 
