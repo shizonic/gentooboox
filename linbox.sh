@@ -261,7 +261,7 @@ _EOF
 }
 
 defaults() {
-	: "${FLAVOR:="gentoo"}"
+	: "${FLAVOR:="archlinux"}"
 	: "${ARCH:="x86_64"}"
 	: "${DISK:="/dev/sda"}"
 	: "${BIOS_PART_SIZE:="2M"}"
