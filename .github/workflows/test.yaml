@@ -7,6 +7,17 @@ on:
 
 jobs:
 
+  formatcheck:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Run shfmt on shell scripts.
+      run: |
+        sudo snap install shfmt
+        shopt -s nullglob
+        make formatcheck
+
   shellcheck:
     runs-on: ubuntu-latest
 
@@ -15,7 +26,7 @@ jobs:
     - name: Run shellcheck on shell scripts.
       run: |
         shopt -s nullglob
-        shellcheck --exclude=SC1090,SC2039 linbox.sh lib/*/*.sh
+        make shellcheck
 
   run:
     runs-on: ubuntu-latest

@@ -4,11 +4,13 @@ opencrypt
 mountrootfs "${MOUNTPOINT}"
 mountpseudofs "${MOUNTPOINT}"
 
-info "Initialize pacman keyring"; {
+info "Initialize pacman keyring"
+{
 	cmdchroot "pacman-key --init && pacman-key --populate"
 }
 
-info "Updating and installing base system and required packages"; {
+info "Updating and installing base system and required packages"
+{
 	cmdchroot "pacman -Syyu --noconfirm --needed \
 		acpi \
 		arch-install-scripts \
@@ -55,18 +57,20 @@ info "Updating and installing base system and required packages"; {
 		zip"
 }
 
-info "Copying configuration files to rootfs"; {
-    copychroot "lib/${FLAVOR}/files" "/"
+info "Copying configuration files to rootfs"
+{
+	copychroot "lib/${FLAVOR}/files" "/"
 }
 
-info "Installing grub bootloader"; {
+info "Installing grub bootloader"
+{
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		if ! grep -q "GRUB_ENABLE_CRYPTODISK" /etc/default/grub; then
 			printf "%s\n" "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
 		else
 			sed -i 's,#GRUB_ENABLE_CRYPTODISK,GRUB_ENABLE_CRYPTODISK,g' /etc/default/grub
 		fi
-
+		
 		# BIOS/MBR i386
 		grub-install \
 			--target=i386-pc \
@@ -75,7 +79,7 @@ info "Installing grub bootloader"; {
 			--bootloader-id="Archlinux_MBR" \
 			--recheck \
 			"${DISK}"
-
+		
 		# EFI i386
 		grub-install \
 			--target=i386-efi \
@@ -87,7 +91,7 @@ info "Installing grub bootloader"; {
 			--removable \
 			--recheck \
 			"/dev/mapper/cryptroot"
-
+		
 		# EFI x86_64
 		grub-install \
 			--target=x86_64-efi \
@@ -102,22 +106,24 @@ info "Installing grub bootloader"; {
 	_EOL
 }
 
-info "Configuring mkinitcpio config"; {
+info "Configuring mkinitcpio config"
+{
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
-
+		
 		sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
-
+		
 		sed -i 's,FILES=.*,FILES=\(/boot/crypt.key\),g' /etc/mkinitcpio.conf
-
+		
 		mkinitcpio -p linux
 	_EOL
 }
 
-info "Configuring grub config"; {
+info "Configuring grub config"
+{
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		sed -i 's,GRUB_CMDLINE_LINUX=.*,GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootflags=subvol=/subvols/@ rd.luks=$(partitionpath 3):cryptswap rd.luks=$(partitionpath 3):cryptroot rd.luks.key=/boot/crypt.key",g' /etc/default/grub
-
+		
 		grub-mkconfig -o /boot/grub/grub.cfg
 	_EOL
 }
