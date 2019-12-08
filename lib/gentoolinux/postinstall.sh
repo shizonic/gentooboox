@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 opencrypt
-mountrootfs "${MOUNTPOINT}"
+mountrootfs "gentoolinux" "${MOUNTPOINT}"
 mountpseudofs "${MOUNTPOINT}"
 
 info "Syncing the Gentoo repository"
@@ -17,17 +17,17 @@ info "Setting up users"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		source /etc/profile
-		
+
 		cat <<-_EOP | passwd
 			${LINBOX_ROOT_PASSWORD}
 			${LINBOX_ROOT_PASSWORD}
 		_EOP
 		chsh -s /bin/bash
-		
+
 		useradd -m -s /bin/bash -U \
 			-G wheel,portage,audio,video,usb,cdrom \
 			"${LINBOX_USER}"
-		
+
 		cat <<-_EOP | passwd "${LINBOX_USER}"
 			${LINBOX_USER_PASSWORD}
 			${LINBOX_USER_PASSWORD}

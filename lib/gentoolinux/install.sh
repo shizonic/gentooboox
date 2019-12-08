@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 opencrypt
-mountrootfs "${MOUNTPOINT}"
+mountrootfs "gentoolinux" "${MOUNTPOINT}"
 
 info "Extracting stage 3"
 {

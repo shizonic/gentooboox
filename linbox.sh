@@ -77,13 +77,13 @@ mountsubvol() {
 }
 
 mountrootfs() {
-	mountsubvol "/subvols/@" "${1}"
-	mountsubvol "/subvols/@boot" "${1}/boot"
-	mountsubvol "/subvols/@home" "${1}/home"
+	mountsubvol "/subvols/${1}/@" "${2}"
+	mountsubvol "/subvols/${1}/@boot" "${2}/boot"
+	mountsubvol "/subvols/${1}/@home" "${2}/home"
 
-	if ! mountpoint -q "${1}/boot/efi"; then
-		mkdir -p "${1}/boot/efi"
-		mount "$(partitionpath 2)" "${1}/boot/efi"
+	if ! mountpoint -q "${2}/boot/efi"; then
+		mkdir -p "${2}/boot/efi"
+		mount "$(partitionpath 2)" "${2}/boot/efi"
 	fi
 }
 
@@ -182,7 +182,7 @@ usage() {
 Usage: linbox.sh [options]
 
 Options:
-   -f --flavor                            Set the distro flavor (gentoo, void, arch).
+   -f --flavors                           Set the distro flavor (gentoo, void, arch).
    -a --arch <arch>                       Set arch to use (x86_64 if unset).
    -d --disk <disk>                       Set disk to partition (/dev/sda if unset).
    -b --bios-part-size <bios-part-size>   Default bios partition size to use (2M if unset).
@@ -220,7 +220,7 @@ WARNING!
 ========
 This will overwrite data on ${DISK} irrevocably.
 
-	FLAVOR                     "${FLAVOR}"
+	FLAVORS                    "${FLAVORS}"
 	ARCH                       "${ARCH}"
 	DISK                       "${DISK}"
 	BIOS_PART_SIZE             "${BIOS_PART_SIZE}"
@@ -261,7 +261,7 @@ _EOF
 }
 
 defaults() {
-	: "${FLAVOR:="archlinux"}"
+	: "${FLAVORS:="archlinux"}"
 	: "${ARCH:="x86_64"}"
 	: "${DISK:="/dev/sda"}"
 	: "${BIOS_PART_SIZE:="2M"}"
@@ -314,7 +314,7 @@ args() {
 			usage
 			exit 0
 			;;
-		-f | --flavor) param "FLAVOR" "${1}" "${2}" ;;
+		-f | --flavors) param "FLAVORS" "${1}" "${2}" ;;
 		-a | --arch) param "ARCH" "${1}" "${2}" ;;
 		-d | --disk) param "DISK" "${1}" "${2}" ;;
 		-b | --bios-part-size) param "BIOS_PART_SIZE" "${1}" "${2}" ;;
@@ -486,11 +486,14 @@ phase_btrfs() {
 	info "Creating BTRFS live subvolumes"
 	{
 		mkdir -p "${MOUNTPOINT}/subvols"
-		for subvol in \
-			@ \
-			@boot \
-			@home; do
-			btrfs subvolume create "${MOUNTPOINT}/subvols/${subvol}"
+		for flavor in ${FLAVORS}; do
+			mkdir -p "${MOUNTPOINT}/subvols/${flavor}"
+			for subvol in \
+				@ \
+				@boot \
+				@home; do
+				btrfs subvolume create "${MOUNTPOINT}/subvols/${flavor}/${subvol}"
+			done
 		done
 	}
 
@@ -509,21 +512,27 @@ phase_btrfs() {
 }
 
 phase_preinstall() {
-	if [ -f "lib/${FLAVOR}/preinstall.sh" ]; then
-		. "lib/${FLAVOR}/preinstall.sh"
-	fi
+	for flavor in ${FLAVORS}; do
+		if [ -f "lib/${flavor}/preinstall.sh" ]; then
+			. "lib/${flavor}/preinstall.sh"
+		fi
+	done
 }
 
 phase_install() {
-	if [ -f "lib/${FLAVOR}/install.sh" ]; then
-		. "lib/${FLAVOR}/install.sh"
-	fi
+	for flavor in ${FLAVORS}; do
+		if [ -f "lib/${flavor}/install.sh" ]; then
+			. "lib/${flavor}/install.sh"
+		fi
+	done
 }
 
 phase_postinstall() {
-	if [ -f "lib/${FLAVOR}/postinstall.sh" ]; then
-		. "lib/${FLAVOR}/postinstall.sh"
-	fi
+	for flavor in ${FLAVORS}; do
+		if [ -f "lib/${flavor}/postinstall.sh" ]; then
+			. "lib/${flavor}/postinstall.sh"
+		fi
+	done
 }
 
 phase_mount() {
