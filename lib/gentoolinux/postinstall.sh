@@ -11,7 +11,7 @@ info "Syncing the Gentoo repository"
 		emerge-webrsync
 	_EOL
 
-}
+} >/dev/null 2>&1
 
 info "Setting up users"
 {
@@ -33,7 +33,7 @@ info "Setting up users"
 			${LINBOX_USER_PASSWORD}
 		_EOP
 	_EOL
-}
+} >/dev/null 2>&1
 
 # info "Installing required packages"
 # {
@@ -54,7 +54,7 @@ info "Setting up users"
 
 # 		emerge --verbose grub:2 cryptsetup genkernel-next btrfs-progs gentoo-sources
 # 	_EOL
-# }
+# } >/dev/null 2>&1
 
 umountrootfs "${MOUNTPOINT}"
 unmountpseudofs "${MOUNTPOINT}"

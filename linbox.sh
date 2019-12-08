@@ -380,7 +380,7 @@ phase_wipefs() {
 	info "Wiping disk ${DISK}"
 	{
 		wipefs --all --force "${DISK}"
-	}
+	} >/dev/null 2>&1
 }
 
 phase_partition() {
@@ -399,7 +399,7 @@ phase_partition() {
 			--new=3:0:+"${ROOT_PART_SIZE}" \
 			--typecode=3:8300 \
 			"${DISK}"
-	}
+	} >/dev/null 2>&1
 }
 
 phase_encrypt() {
@@ -410,7 +410,7 @@ phase_encrypt() {
 			if=/dev/urandom \
 			of="${TMPDIR}/crypt/crypt.key"
 		chmod 000 "${TMPDIR}/crypt/crypt.key"
-	}
+	} >/dev/null 2>&1
 
 	info "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
 	{
@@ -435,7 +435,7 @@ phase_encrypt() {
 				--iter-time 100 \
 				--use-random \
 				luksFormat "$(partitionpath 3)" -
-	}
+	} >/dev/null 2>&1
 
 	info "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
 	{
@@ -450,7 +450,7 @@ phase_encrypt() {
 				--iter-time 100 \
 				luksAddKey "$(partitionpath 3)" \
 				"/${TMPDIR}/crypt/crypt.key"
-	}
+	} >/dev/null 2>&1
 }
 
 phase_mkfs() {
@@ -459,14 +459,14 @@ phase_mkfs() {
 	info "Creating MS-DOS filesystem for EFI partition ($(partitionpath 2))"
 	{
 		mkfs.vfat -F 32 -n "EFI" "$(partitionpath 2)"
-	}
+	} >/dev/null 2>&1
 
 	info "Setting up swap area for swap partition (cryptswap)"
 	{
 		mkswap \
 			--label swap \
 			"/dev/mapper/cryptswap"
-	}
+	} >/dev/null 2>&1
 
 	info "Creating BTRFS filesystem for root partition (cryptroot)"
 	{
@@ -474,7 +474,7 @@ phase_mkfs() {
 			--force \
 			--label root \
 			"/dev/mapper/cryptroot"
-	}
+	} >/dev/null 2>&1
 
 	closecrypt
 }
@@ -495,7 +495,7 @@ phase_btrfs() {
 				btrfs subvolume create "${MOUNTPOINT}/subvols/${flavor}/${subvol}"
 			done
 		done
-	}
+	} >/dev/null 2>&1
 
 	info "Creating BTRFS snapshot subvolumes"
 	{
@@ -505,7 +505,7 @@ phase_btrfs() {
 			@home; do
 			btrfs subvolume create "${MOUNTPOINT}/snaps/${subvol}"
 		done
-	}
+	} >/dev/null 2>&1
 
 	unmount "${MOUNTPOINT}"
 	closecrypt

@@ -14,22 +14,22 @@ mountrootfs "archlinux" "${MOUNTPOINT}"
 info "Copying archlinux rootfs"
 {
 	copychroot "${TMPDIR}/root.x86_64" "/"
-}
+} >/dev/null 2>&1
 
 info "Copying crypt.key file"
 {
 	copychroot "${TMPDIR}/crypt" "/boot"
-}
+} >/dev/null 2>&1
 
 info "Removing unused files from rootfs"
 {
 	cmdchroot "rm -f /README"
-}
+} >/dev/null 2>&1
 
 info "Backing up pacman mirrorlist"
 {
 	cmdchroot "cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bkp"
-}
+} >/dev/null 2>&1
 
 info "Setting up pacman mirrorlist to switzerland"
 {
@@ -53,7 +53,7 @@ info "Setting up pacman mirrorlist to switzerland"
 		Server = https://mirror.puzzle.ch/archlinux/$repo/os/$arch
 		Server = https://mirror.ungleich.ch/mirror/packages/archlinux/$repo/os/$arch
 	_EOL
-}
+} >/dev/null 2>&1
 
 umountrootfs "${MOUNTPOINT}"
 closecrypt

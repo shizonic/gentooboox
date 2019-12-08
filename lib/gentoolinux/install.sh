@@ -9,7 +9,7 @@ info "Extracting stage 3"
 		--xattrs-include="*.*" \
 		--numeric-owner \
 		-C "${MOUNTPOINT}"
-}
+} >/dev/null 2>&1
 
 umountrootfs "${MOUNTPOINT}"
 closecrypt

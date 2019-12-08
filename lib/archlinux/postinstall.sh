@@ -7,7 +7,7 @@ mountpseudofs "${MOUNTPOINT}"
 info "Initialize pacman keyring"
 {
 	cmdchroot "pacman-key --init && pacman-key --populate"
-}
+} >/dev/null 2>&1
 
 info "Updating and installing base system and required packages"
 {
@@ -55,12 +55,12 @@ info "Updating and installing base system and required packages"
 		wireless_tools \
 		wpa_supplicant \
 		zip"
-}
+} >/dev/null 2>&1
 
 info "Copying configuration files to rootfs"
 {
 	copychroot "lib/archlinux/files" "/"
-}
+} >/dev/null 2>&1
 
 info "Installing grub bootloader"
 {
@@ -104,7 +104,7 @@ info "Installing grub bootloader"
 			--recheck \
 			"/dev/mapper/cryptroot"
 	_EOL
-}
+} >/dev/null 2>&1
 
 info "Configuring mkinitcpio config"
 {
@@ -117,7 +117,7 @@ info "Configuring mkinitcpio config"
 		
 		mkinitcpio -p linux
 	_EOL
-}
+} >/dev/null 2>&1
 
 info "Configuring grub config"
 {
@@ -126,7 +126,7 @@ info "Configuring grub config"
 		
 		grub-mkconfig -o /boot/grub/grub.cfg
 	_EOL
-}
+} >/dev/null 2>&1
 
 umountrootfs "${MOUNTPOINT}"
 unmountpseudofs "${MOUNTPOINT}"

@@ -10,7 +10,7 @@ info "Syncing the Gentoo repository"
 		    source /etc/profile
 		    emerge-webrsync
 	_EOL
-}
+} >/dev/null 2>&1
 
 info "Setting up users"
 {
@@ -32,7 +32,7 @@ info "Setting up users"
 			${LINBOX_USER_PASSWORD}
 		_EOP
 	_EOL
-}
+} >/dev/null 2>&1
 
 info "Configure timezone and hardware clock"
 {
@@ -45,7 +45,7 @@ info "Configure timezone and hardware clock"
 		
 		emerge --config sys-libs/timezone-data
 	_EOL
-}
+} >/dev/null 2>&1
 
 info "Configure locales"
 {
@@ -64,7 +64,7 @@ info "Configure locales"
 		
 		locale-gen
 	_EOL
-}
+} >/dev/null 2>&1
 
 info "Configure host and domain name"
 {
@@ -75,7 +75,7 @@ info "Configure host and domain name"
 		sed -i "s,hostname=.*,hostname=\"${HOSTNAME}\",g" \
 			/etc/conf.d/hostname
 	_EOL
-}
+} >/dev/null 2>&1
 
 info "Configure keymap and console font"
 {
@@ -91,7 +91,7 @@ info "Configure keymap and console font"
 			FONT=Lat2-Terminus16
 		_EOP
 	_EOL
-}
+} >/dev/null 2>&1
 
 info "Installing required packages"
 {
@@ -112,7 +112,7 @@ info "Installing required packages"
 		
 		emerge --verbose grub:2 cryptsetup genkernel-next btrfs-progs gentoo-sources
 	_EOL
-}
+} >/dev/null 2>&1
 
 info "Updating environment"
 {
@@ -121,7 +121,7 @@ info "Updating environment"
 		
 		env-update
 	_EOL
-}
+} >/dev/null 2>&1
 
 umountrootfs "${MOUNTPOINT}"
 unmountpseudofs "${MOUNTPOINT}"
