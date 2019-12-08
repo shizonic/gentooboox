@@ -2,7 +2,7 @@
 
 info "Extracting archlinux bootstrap tarball"
 {
-	tar xzfv "${TMPDIR}"/archlinux-bootstrap-*.tar.gz \
+	tar xzf "${TMPDIR}"/archlinux-bootstrap-*.tar.gz \
 		--xattrs-include="*.*" \
 		--numeric-owner \
 		-C "${TMPDIR}"
