@@ -34,4 +34,4 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Run linbox in loopback mode.
-      run: sudo ./linbox.sh -e 256M -s 512M -L -p "linbox" --batchmode --flavors "archlinux"
+      run: sudo ./linbox.sh -e 256M -s 512M -L -p "linbox" --verbose --batchmode --flavors "archlinux"
