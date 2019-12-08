@@ -59,7 +59,7 @@ info "Updating and installing base system and required packages"
 
 info "Copying configuration files to rootfs"
 {
-	copychroot "lib/${FLAVOR}/files" "/"
+	copychroot "lib/archlinux/files" "/"
 }
 
 info "Installing grub bootloader"
