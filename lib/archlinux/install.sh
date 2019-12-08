@@ -38,12 +38,12 @@ info "Setting up pacman mirrorlist to switzerland"
 		## Arch Linux repository mirrorlist
 		## Generated on 2019-10-01
 		##
-
+		
 		## Worldwide
 		#Server = http://mirrors.evowise.com/archlinux/$repo/os/$arch
 		#Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch
 		#Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch
-
+		
 		## Switzerland
 		Server = http://pkg.adfinis-sygroup.ch/archlinux/$repo/os/$arch
 		Server = https://pkg.adfinis-sygroup.ch/archlinux/$repo/os/$arch
