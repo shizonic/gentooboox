@@ -10,7 +10,7 @@ log() {
 }
 
 info() {
-	printf '\033[1;33m->\033[m %s.\n' "$@" >/dev/tty
+	printf '\033[1;33m->\033[m %s.\n' "$@"
 }
 
 info_sub() {
