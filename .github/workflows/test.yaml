@@ -16,7 +16,7 @@ jobs:
       run: |
         sudo snap install shfmt
         shopt -s nullglob
-        make lint
+        make formatcheck
 
   shellcheck:
     runs-on: ubuntu-latest
@@ -26,7 +26,7 @@ jobs:
     - name: Run shellcheck on shell scripts.
       run: |
         shopt -s nullglob
-        make check
+        make shellcheck
 
   run:
     runs-on: ubuntu-latest
@@ -34,4 +34,4 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Run linbox in loopback mode.
-      run: sudo ./linbox.sh -e 256M -s 512M -L -p "linbox" --batchmode --flavors "archlinux"
+      run: sudo ./linbox.sh -e 256M -s 512M -L -p "linbox" --verbose --batchmode --flavor "archlinux"
