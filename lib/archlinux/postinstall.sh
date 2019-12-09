@@ -180,35 +180,8 @@ info "Setting up users and groups"
 		_EOP
 		chsh -s /bin/bash
 		
-		groupadd \
-			audio \
-			games \
-			log \
-			lp \
-			network \
-			optical \
-			power \
-			proc \
-			scanner \
-			storage \
-			users \
-			video \
-			wheel
-		
-		useradd -m -s /bin/bash -U -G \
-			audio \
-			games \
-			log \
-			lp \
-			network \
-			optical \
-			power \
-			proc \
-			scanner \
-			storage \
-			users \
-			video \
-			wheel \
+		useradd -m -s /bin/bash -U \
+			-G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel \
 		"${LINBOX_USER}"
 		
 		cat <<-_EOP | passwd "${LINBOX_USER}"
@@ -229,7 +202,7 @@ info "Configuring crypttab"
 info "Configuring mkinitcpio"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
+		sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
 		
 		sed -i 's,MODULES=.*,MODULES=\(crc32c-intel i915\),g' /etc/mkinitcpio.conf
 		
@@ -244,7 +217,7 @@ info "Configuring mkinitcpio"
 info "Configuring grub"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		sed -i 's,GRUB_CMDLINE_LINUX=.*,GRUB_CMDLINE_LINUX="rootfstype=btrfs rootflags=subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.key=/boot/crypt.key",g' /etc/default/grub
+		sed -i 's,GRUB_CMDLINE_LINUX=.*,GRUB_CMDLINE_LINUX="rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.key=/boot/crypt.key rd.luks.options=discard resume=UUID=$(deviceuuid "/dev/mapper/cryptswap")",g' /etc/default/grub
 		
 		grub-mkconfig -o /boot/grub/grub.cfg
 	_EOL
