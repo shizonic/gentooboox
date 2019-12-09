@@ -74,8 +74,8 @@ mountsubvol() {
 
 mountrootfs() {
 	mountsubvol "/subvols/${1}/@" "${2}"
-	mountsubvol "/subvols/${1}/@boot" "${2}/boot"
-	mountsubvol "/subvols/${1}/@home" "${2}/home"
+	mountsubvol "/subvols/@boot" "${2}/boot"
+	mountsubvol "/subvols/@home" "${2}/home"
 
 	if ! mountpoint -q "${2}/boot/efi"; then
 		mkdir -p "${2}/boot/efi"
@@ -496,27 +496,39 @@ phase_btrfs() {
 	opencrypt
 	mountsubvol "/" "${MOUNTPOINT}"
 
-	info "Creating BTRFS live subvolumes"
+	info "Creating cross distro BTRFS live subvolumes"
 	{
 		mkdir -p "${MOUNTPOINT}/subvols"
-		for flavor in ${FLAVORS}; do
-			mkdir -p "${MOUNTPOINT}/subvols/${flavor}"
-			for subvol in \
-				@ \
-				@boot \
-				@home; do
-				btrfs subvolume create "${MOUNTPOINT}/subvols/${flavor}/${subvol}"
-			done
+		for subvol in \
+			@boot \
+			@home; do
+			btrfs subvolume create "${MOUNTPOINT}/subvols/${subvol}"
 		done
 	} >/dev/null 2>&1
 
-	info "Creating BTRFS snapshot subvolumes"
+	info "Creating distro specific BTRFS live subvolumes"
+	{
+		for flavor in ${FLAVORS}; do
+			mkdir -p "${MOUNTPOINT}/subvols/${flavor}"
+			btrfs subvolume create "${MOUNTPOINT}/subvols/${flavor}/@"
+		done
+	} >/dev/null 2>&1
+
+	info "Creating cross distro BTRFS snapshot subvolumes"
 	{
 		mkdir -p "${MOUNTPOINT}/snaps"
 		for subvol in \
-			@ \
+			@boot \
 			@home; do
 			btrfs subvolume create "${MOUNTPOINT}/snaps/${subvol}"
+		done
+	} >/dev/null 2>&1
+
+	info "Creating distro specific BTRFS snapshot subvolumes"
+	{
+		for flavor in ${FLAVORS}; do
+			mkdir -p "${MOUNTPOINT}/snaps/${flavor}"
+			btrfs subvolume create "${MOUNTPOINT}/snaps/${flavor}/@"
 		done
 	} >/dev/null 2>&1
 

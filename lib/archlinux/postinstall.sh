@@ -103,15 +103,20 @@ info "Installing grub bootloader"
 			--removable \
 			--recheck \
 			"/dev/mapper/cryptroot"
+		
+		mkdir -p /boot/grub/locale
+		cp -f /usr/share/locale/en@quot/LC_MESSAGES/grub.mo /boot/grub/locale/en.mo
 	_EOL
 } >/dev/null 2>&1
 
 info "Configuring mkinitcpio config"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		# sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
-		
 		sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
+		
+		sed -i 's,MODULES=.*,MODULES=\(crc32c-intel i915\),g' /etc/mkinitcpio.conf
+		
+		sed -i 's,BINARIES=.*,BINARIES=\(/usr/bin/btrfs\),g' /etc/mkinitcpio.conf
 		
 		sed -i 's,FILES=.*,FILES=\(/boot/crypt.key\),g' /etc/mkinitcpio.conf
 		
@@ -122,7 +127,7 @@ info "Configuring mkinitcpio config"
 info "Configuring grub config"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		sed -i 's,GRUB_CMDLINE_LINUX=.*,GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootflags=subvol=/subvols/@ rd.luks=$(partitionpath 3):cryptswap rd.luks=$(partitionpath 3):cryptroot rd.luks.key=/boot/crypt.key",g' /etc/default/grub
+		sed -i 's,GRUB_CMDLINE_LINUX=.*,GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootflags=subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.key=/boot/crypt.key",g' /etc/default/grub
 		
 		grub-mkconfig -o /boot/grub/grub.cfg
 	_EOL
