@@ -2,11 +2,11 @@
 
 info "Extracting archlinux bootstrap tarball"
 {
-	tar xzf "${TMPDIR}"/archlinux-bootstrap-*.tar.gz \
+	tar xzfv "${TMPDIR}"/archlinux-bootstrap-*.tar.gz \
 		--xattrs-include="*.*" \
 		--numeric-owner \
 		-C "${TMPDIR}"
-}
+} >/dev/null 2>&1
 
 opencrypt
 mountrootfs "archlinux" "${MOUNTPOINT}"

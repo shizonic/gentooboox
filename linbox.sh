@@ -34,7 +34,6 @@ deviceuuid() {
 }
 
 opencrypt() {
-	# swap partition
 	if ! cryptsetup status "cryptswap" >/dev/null 2>&1; then
 		cryptsetup \
 			--key-file "${TMPDIR}/crypt/crypt.key" \
@@ -42,7 +41,6 @@ opencrypt() {
 			"cryptswap"
 	fi
 
-	# root partition
 	if ! cryptsetup status "cryptroot" >/dev/null 2>&1; then
 		cryptsetup \
 			--key-file "${TMPDIR}/crypt/crypt.key" \
@@ -52,12 +50,10 @@ opencrypt() {
 }
 
 closecrypt() {
-	# swap partition
 	if cryptsetup status "cryptswap" >/dev/null 2>&1; then
 		cryptsetup luksClose "cryptswap" || :
 	fi
 
-	# root partition
 	if cryptsetup status "cryptroot" >/dev/null 2>&1; then
 		cryptsetup luksClose "cryptroot" || :
 	fi
@@ -122,10 +118,13 @@ mountpseudofs() {
 
 	cp -L "/etc/resolv.conf" "${1}/etc/"
 
-	mountpoint -q "${1}/proc" || mount -t proc proc "${1}/proc"
-	mountpoint -q "${1}/sys" || mount -t sysfs sys "${1}/sys"
-	mountpoint -q "${1}/dev" || mount -o bind /dev "${1}/dev"
-	mountpoint -q "${1}/dev/pts" || mount -t devpts pts "${1}/dev/pts"
+	mountpoint -q "${1}/proc" || mount proc "${1}/proc" -t proc -o nosuid,noexec,nodev
+	mountpoint -q "${1}/sys" || mount sys "${1}/sys" -t sysfs -o nosuid,noexec,nodev,ro
+	mountpoint -q "${1}/dev" || mount udev "${1}/dev" -t devtmpfs -o mode=0755,nosuid
+	mountpoint -q "${1}/dev/pts" || mount pts "${1}/dev/pts" -t devpts -o mode=0620,gid=5,nosuid,noexec
+	mountpoint -q "${1}/dev/shm" || mount shm "${1}/dev/shm" -t tmpfs -o mode=1777,nosuid,nodev
+	mountpoint -q "${1}/tmp" || mount tmp "${1}/tmp" -t tmpfs -o mode=1777,strictatime,nodev,nosuid
+	mountpoint -q "${1}/run" || mount /run "${1}/run" --bind
 
 	if [ -e "/sys/firmware/efi/systab" ] && ! mountpoint -q "${1}/sys/firmware/efi/efivars"; then
 		mkdir -p "${1}/sys/firmware/efi/efivars"
@@ -134,11 +133,17 @@ mountpseudofs() {
 }
 
 unmountpseudofs() {
-	for d in proc sys dev/pts dev; do
+	for d in \
+		sys/firmware/efi/efivars \
+		proc \
+		sys \
+		dev/pts \
+		dev/shm \
+		dev \
+		tmp; do
 		unmount "${1}/${d}"
 	done
 	rm -f "${1}/etc/resolv.conf"
-	unmount "${1}/sys/firmware/efi/efivars"
 }
 
 unmount() {
@@ -165,6 +170,14 @@ checkroot() {
 
 cmdchroot() {
 	chroot "${MOUNTPOINT}" sh -c "${@}"
+}
+
+handleverbosity() {
+	if [ "${VERBOSE}" = "yes" ]; then
+		"${@}"
+	else
+		"${@}" >/dev/null 2>&1
+	fi
 }
 
 copychroot() {
@@ -366,7 +379,7 @@ out() {
 }
 
 runphases() {
-	[ "${VERBOSE}" = "yes" ] && to="" || to=" > /dev/null 2>&1"
+	[ "${VERBOSE}" = "yes" ] && to="" || to=" >/dev/null 2>&1"
 
 	for phase in ${PHASES}; do
 		log "Running phase: ${phase}"
