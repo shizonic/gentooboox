@@ -109,7 +109,108 @@ info "Installing grub bootloader"
 	_EOL
 } >/dev/null 2>&1
 
-info "Configuring mkinitcpio config"
+info "Generating fstab"
+{
+	cmdchroot "genfstab -U / >> /etc/fstab"
+} >/dev/null 2>&1
+
+info "Configuring timezone and hardware clock"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		ln -sf /usr/share/zoneinfo/${TIMEZONE} /etc/localtime
+	_EOL
+} >/dev/null 2>&1
+
+info "Configuring locale"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		sed -i 's,#${LOCALE} UTF-8,${LOCALE} UTF-8),g' /etc/locale.gen
+		locale-gen
+		
+		cat <<-EOL > "/etc/locale.conf"
+			LANG=${LOCALE}
+			LC_COLLATE=C
+		EOL
+	_EOL
+} >/dev/null 2>&1
+
+info "Configuring keymap"
+{
+	cat <<-_EOL >"${MOUNTPOINT}/etc/vconsole.conf"
+		KEYMAP=${KEYMAP}
+		FONT=Lat2-Terminus16
+		FONT_MAP=
+	_EOL
+} >/dev/null 2>&1
+
+info "Configuring hostname"
+{
+	cat <<-_EOL >"${MOUNTPOINT}/etc/hostname"
+		${HOSTNAME}
+	_EOL
+} >/dev/null 2>&1
+
+info "Configuring hosts"
+{
+	cat <<-_EOL >"${MOUNTPOINT}/etc/hosts"
+		127.0.0.1	localhost
+		::1		localhost
+		127.0.1.1	${HOSTNAME}.localdomain	${HOSTNAME}
+	_EOL
+} >/dev/null 2>&1
+
+info "Configuring sudoers"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		mkdir -p /etc/sudoers.d
+		
+		cat <<-EOL > "/etc/sudoers.d/${LINBOX_USER}"
+			${LINBOX_USER} ALL=(ALL) NOPASSWD: ALL
+		EOL
+	_EOL
+} >/dev/null 2>&1
+
+info "Setting up users"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		cat <<-_EOP | passwd
+			${LINBOX_ROOT_PASSWORD}
+			${LINBOX_ROOT_PASSWORD}
+		_EOP
+		chsh -s /bin/bash
+		
+		useradd -m -s /bin/bash -U -G \
+			audio \
+			games \
+			log \
+			lp \
+			network \
+			optical \
+			power \
+			proc \
+			scanner \
+			storage \
+			users \
+			video \
+			wheel \
+		"${LINBOX_USER}"
+		
+		cat <<-_EOP | passwd "${LINBOX_USER}"
+			${LINBOX_USER_PASSWORD}
+			${LINBOX_USER_PASSWORD}
+		_EOP
+	_EOL
+} >/dev/null 2>&1
+
+info "Configuring crypttab"
+{
+	cat <<-_EOL >"${MOUNTPOINT}/etc/crypttab"
+		cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
+		cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
+	_EOL
+} >/dev/null 2>&1
+
+info "Configuring mkinitcpio"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
@@ -118,16 +219,16 @@ info "Configuring mkinitcpio config"
 		
 		sed -i 's,BINARIES=.*,BINARIES=\(/usr/bin/btrfs\),g' /etc/mkinitcpio.conf
 		
-		sed -i 's,FILES=.*,FILES=\(/boot/crypt.key\),g' /etc/mkinitcpio.conf
+		sed -i 's,FILES=.*,FILES=\(/boot/crypt.key /etc/crypttab\),g' /etc/mkinitcpio.conf
 		
 		mkinitcpio -p linux
 	_EOL
 } >/dev/null 2>&1
 
-info "Configuring grub config"
+info "Configuring grub"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		sed -i 's,GRUB_CMDLINE_LINUX=.*,GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootflags=subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.key=/boot/crypt.key",g' /etc/default/grub
+		sed -i 's,GRUB_CMDLINE_LINUX=.*,GRUB_CMDLINE_LINUX="rootflags=subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.key=/boot/crypt.key",g' /etc/default/grub
 		
 		grub-mkconfig -o /boot/grub/grub.cfg
 	_EOL
