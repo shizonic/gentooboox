@@ -118,6 +118,7 @@ info "Configuring timezone and hardware clock"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		ln -sf /usr/share/zoneinfo/${TIMEZONE} /etc/localtime
+		hwclock --systohc --utc
 	_EOL
 } >/dev/null 2>&1
 
@@ -170,7 +171,7 @@ info "Configuring sudoers"
 	_EOL
 } >/dev/null 2>&1
 
-info "Setting up users"
+info "Setting up users and groups"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		cat <<-_EOP | passwd
@@ -178,6 +179,21 @@ info "Setting up users"
 			${LINBOX_ROOT_PASSWORD}
 		_EOP
 		chsh -s /bin/bash
+		
+		groupadd \
+			audio \
+			games \
+			log \
+			lp \
+			network \
+			optical \
+			power \
+			proc \
+			scanner \
+			storage \
+			users \
+			video \
+			wheel
 		
 		useradd -m -s /bin/bash -U -G \
 			audio \
@@ -228,7 +244,7 @@ info "Configuring mkinitcpio"
 info "Configuring grub"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		sed -i 's,GRUB_CMDLINE_LINUX=.*,GRUB_CMDLINE_LINUX="rootflags=subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.key=/boot/crypt.key",g' /etc/default/grub
+		sed -i 's,GRUB_CMDLINE_LINUX=.*,GRUB_CMDLINE_LINUX="rootfstype=btrfs rootflags=subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.key=/boot/crypt.key",g' /etc/default/grub
 		
 		grub-mkconfig -o /boot/grub/grub.cfg
 	_EOL
