@@ -211,17 +211,20 @@ info "Configuring mkinitcpio"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# systemd initramfs
-		sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
+		# sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt openswap filesystems fsck\),g' /etc/mkinitcpio.conf
 		
 		# busybox initramfs
-		# sed -i 's,HOOKS=.*,HOOKS=\(base udev autodetect keyboard keymap consolefont modconf block encrypt filesystems fsck resume\),g' /etc/mkinitcpio.conf
+		sed -i 's,HOOKS=.*,HOOKS=\(base udev autodetect keyboard keymap consolefont modconf block encrypt openswap resume filesystems fsck\),g' /etc/mkinitcpio.conf
 		
 		sed -i 's,MODULES=.*,MODULES=\(crc32c-intel i915\),g' /etc/mkinitcpio.conf
 		
 		sed -i 's,BINARIES=.*,BINARIES=\(/usr/bin/btrfs\),g' /etc/mkinitcpio.conf
 		
 		# sed -i 's,FILES=.*,FILES=\(/boot/crypt.key /etc/crypttab\),g' /etc/mkinitcpio.conf
-		sed -i 's,FILES=.*,FILES=\(/boot/crypt.key\),g' /etc/mkinitcpio.conf
+		sed -i 's,FILES=.*,FILES=\(/boot/crypt.key /etc/modprobe.d/modprobe.conf\),g' /etc/mkinitcpio.conf
+		
+		sed -i 's,@@CRYPTSWAP_UUID@@,$(deviceuuid "$(partitionpath 4)"),g' /etc/initcpio/hooks/openswap
+		sed -i 's,@@CRYPTSWAP_UUID@@,$(deviceuuid "$(partitionpath 4)"),g' /etc/initcpio/install/openswap
 		
 		mkinitcpio -p linux
 	_EOL
@@ -233,12 +236,21 @@ info "Configuring grub"
 		# systemd initramfs
 		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.key=/boot/crypt.key rd.luks.options=discard resume=UUID=$(deviceuuid "/dev/mapper/cryptswap")"#g' /etc/default/grub
 		
-		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap luks.key=/boot/crypt.key luks.options=discard rootfstype=btrfs root=/dev/mapper/cryptroot rootflags=subvol=/subvols/archlinux/@ resume=/dev/mapper/cryptswap"#g' /etc/default/grub
+		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap luks.key=/boot/crypt.key luks.options=discard rootfstype=btrfs root=/dev/mapper/cryptroot rootflags=subvol=/subvols/archlinux/@ resume=/dev/mapper/cryptswap"#g' /etc/default/grub
 		
 		# busybox initramfs
-		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ cryptdevice=UUID=$(deviceuuid "$(partitionpath 3)"):cryptroot:allow-discards cryptdevice=UUID=$(deviceuuid "$(partitionpath 4)"):cryptswap:allow-discards cryptkey=rootfs:/boot/crypt.key resume=UUID=$(deviceuuid "/dev/mapper/cryptswap")"#g' /etc/default/grub
+		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ cryptdevice=UUID=$(deviceuuid "$(partitionpath 3)"):cryptroot:allow-discards cryptkey=rootfs:/boot/crypt.key resume=/dev/mapper/cryptswap"#g' /etc/default/grub
 		
 		grub-mkconfig -o /boot/grub/grub.cfg
+	_EOL
+} >/dev/null 2>&1
+
+info "Enabling systemd services"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		systemctl enable dnscrypt-proxy.service
+		systemctl enable nftables
+		systemctl enable systemd-swap
 	_EOL
 } >/dev/null 2>&1
 
