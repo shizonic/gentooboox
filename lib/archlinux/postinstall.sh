@@ -155,9 +155,9 @@ info "Configuring hostname"
 info "Configuring hosts"
 {
 	cat <<-_EOL >"${MOUNTPOINT}/etc/hosts"
-		127.0.0.1	localhost
-		::1		localhost
-		127.0.1.1	${HOSTNAME}.localdomain	${HOSTNAME}
+		#<ip-address>   <hostname.domain.org>       <hostname>
+		127.0.0.1       localhost.localdomain       localhost       ${HOSTNAME}
+		::1             localhost.localdomain       localhost       ip6-localhost ${HOSTNAME}
 	_EOL
 } >/dev/null 2>&1
 
