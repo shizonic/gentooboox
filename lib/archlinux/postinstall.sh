@@ -112,11 +112,22 @@ info "Installing grub bootloader"
 
 info "Generating fstab"
 {
-	cmdchroot "genfstab -U / >> /etc/fstab"
+	# cmdchroot "genfstab -U / >> /etc/fstab"
 
 	cat <<-_EOL >>"${MOUNTPOINT}/etc/fstab"
+		# /dev/mapper/cryptroot
+		UUID=$(deviceuuid "/dev/mapper/cryptroot") / btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ 0 0
+		UUID=$(deviceuuid "/dev/mapper/cryptroot") /boot btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/@boot 0 0
+		UUID=$(deviceuuid "/dev/mapper/cryptroot") /home btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/@home 0 0
+		
+		# $(partitionpath 2)
+		UID=$(deviceuuid "$(partitionpath 2)") /boot/efi vfat rw,noatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,utf8,errors=remount-ro 0 2
+		
+		# /dev/mapper/cryptswap
+		UUID=$(deviceuuid "/dev/mapper/cryptswap") swap swap defaults 0 0
+		
 		# /proc with hidepid (https://wiki.archlinux.org/index.php/Security#hidepid)
-		proc                                      /proc       proc        nodev,noexec,nosuid,hidepid=2,gid=proc 0 0
+		proc /proc proc nodev,noexec,nosuid,hidepid=2,gid=proc 0 0
 	_EOL
 
 	cmdchroot "/usr/bin/cleanfstab > /dev/null 2>&1 && mv /etc/fstab.new /etc/fstab"
