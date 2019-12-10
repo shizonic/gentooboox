@@ -37,6 +37,7 @@ info "Updating and installing base system and required packages"
 		iw \
 		kbd \
 		lynx \
+		lsof \
 		lz4 \
 		net-tools \
 		nftables \
@@ -245,8 +246,8 @@ info "Cleaning up"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# needed to be able to successfully unmount pseudofs
-		pkill gpg-agent
-		pkill dirmngr
+		pkill gpg-agent ||:
+		pkill dirmngr   ||:
 	_EOL
 } >/dev/null 2>&1
 
