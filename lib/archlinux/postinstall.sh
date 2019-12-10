@@ -113,6 +113,13 @@ info "Installing grub bootloader"
 info "Generating fstab"
 {
 	cmdchroot "genfstab -U / >> /etc/fstab"
+
+	cat <<-_EOL >>"${MOUNTPOINT}/etc/fstab"
+		# /proc with hidepid (https://wiki.archlinux.org/index.php/Security#hidepid)
+		proc                                      /proc       proc        nodev,noexec,nosuid,hidepid=2,gid=proc 0 0
+	_EOL
+
+	cmdchroot "/usr/bin/cleanfstab > /dev/null 2>&1 && mv /etc/fstab.new /etc/fstab"
 } >/dev/null 2>&1
 
 info "Configuring timezone and hardware clock"
