@@ -193,9 +193,16 @@ info "Setting up users and groups"
 
 info "Configuring crypttab"
 {
-	cat <<-_EOL >"${MOUNTPOINT}/etc/crypttab"
-		cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
-		cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
+	cat <<-_EOL >>"${MOUNTPOINT}/etc/crypttab"
+		# If one would like to use crypttab
+		# cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
+		# cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
+	_EOL
+
+	cat <<-_EOL >>"${MOUNTPOINT}/etc/crypttab.initramfs"
+		# If one would like to use crypttab
+		# cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
+		# cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
 	_EOL
 } >/dev/null 2>&1
 
@@ -212,7 +219,8 @@ info "Configuring mkinitcpio"
 		
 		sed -i 's,BINARIES=.*,BINARIES=\(/usr/bin/btrfs\),g' /etc/mkinitcpio.conf
 		
-		sed -i 's,FILES=.*,FILES=\(/boot/crypt.key /etc/crypttab\),g' /etc/mkinitcpio.conf
+		# sed -i 's,FILES=.*,FILES=\(/boot/crypt.key /etc/crypttab\),g' /etc/mkinitcpio.conf
+		sed -i 's,FILES=.*,FILES=\(/boot/crypt.key\),g' /etc/mkinitcpio.conf
 		
 		mkinitcpio -p linux
 	_EOL
@@ -222,7 +230,9 @@ info "Configuring grub"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# systemd initramfs
-		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.key=/boot/crypt.key rd.luks.options=discard resume=UUID=$(deviceuuid "/dev/mapper/cryptswap")"#g' /etc/default/grub
+		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.key=/boot/crypt.key rd.luks.options=discard resume=UUID=$(deviceuuid "/dev/mapper/cryptswap")"#g' /etc/default/grub
+		
+		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap luks.key=/boot/crypt.key luks.options=discard resume=UUID=$(deviceuuid "/dev/mapper/cryptswap")"#g' /etc/default/grub
 		
 		# busybox initramfs
 		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ cryptdevice=UUID=$(deviceuuid "$(partitionpath 3)"):cryptroot:allow-discards cryptdevice=UUID=$(deviceuuid "$(partitionpath 4)"):cryptswap:allow-discards cryptkey=rootfs:/boot/crypt.key resume=UUID=$(deviceuuid "/dev/mapper/cryptswap")"#g' /etc/default/grub
@@ -231,6 +241,15 @@ info "Configuring grub"
 	_EOL
 } >/dev/null 2>&1
 
-umountrootfs "${MOUNTPOINT}"
+info "Cleaning up"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		# needed to be able to successfully unmount pseudofs
+		pkill gpg-agent
+		pkill dirmngr
+	_EOL
+} >/dev/null 2>&1
+
 unmountpseudofs "${MOUNTPOINT}"
+unmountrootfs "${MOUNTPOINT}"
 closecrypt

@@ -83,7 +83,7 @@ mountrootfs() {
 	fi
 }
 
-umountrootfs() {
+unmountrootfs() {
 	unmount "${1}/boot/efi"
 	unmount "${1}/boot"
 	unmount "${1}/home"
@@ -112,7 +112,7 @@ umountrootfs() {
 # }
 
 mountpseudofs() {
-	for d in proc sys dev dev/pts etc; do
+	for d in proc sys dev dev/pts dev/shm tmp run etc; do
 		mkdir -p "${1}/${d}"
 	done
 
@@ -134,13 +134,14 @@ mountpseudofs() {
 
 unmountpseudofs() {
 	for d in \
-		sys/firmware/efi/efivars \
 		proc \
+		sys/firmware/efi/efivars \
 		sys \
 		dev/pts \
 		dev/shm \
 		dev \
-		tmp; do
+		tmp \
+		run; do
 		unmount "${1}/${d}"
 	done
 	rm -f "${1}/etc/resolv.conf"
@@ -148,7 +149,8 @@ unmountpseudofs() {
 
 unmount() {
 	if mountpoint -q "${1}"; then
-		umount "${1}" || umount -l "${1}" || :
+		# umount "${1}" || umount -l "${1}" || :
+		umount "${1}"
 		sync
 	fi
 }
@@ -368,8 +370,8 @@ out() {
 	fi
 
 	if [ ! "${SKIP_CLEANUP}" = "yes" ]; then
-		umountrootfs "${MOUNTPOINT}"
 		unmountpseudofs "${MOUNTPOINT}"
+		unmountrootfs "${MOUNTPOINT}"
 		closecrypt
 
 		for dir in ${TMPDIR} ${MOUNTPOINT}; do
@@ -562,13 +564,17 @@ phase_postinstall() {
 
 phase_mount() {
 	opencrypt
-	mountrootfs "${MOUNTPOINT}"
-	mountpseudofs "${MOUNTPOINT}"
+	for flavor in ${FLAVORS}; do
+		mountrootfs "${flavor}" "${MOUNTPOINT}/${flavor}"
+		mountpseudofs "${MOUNTPOINT}/${flavor}"
+	done
 }
 
 phase_unmount() {
-	umountrootfs "${MOUNTPOINT}"
-	unmountpseudofs "${MOUNTPOINT}"
+	for flavor in ${FLAVORS}; do
+		unmountrootfs "${MOUNTPOINT}/${flavor}"
+		unmountpseudofs "${MOUNTPOINT}/${flavor}"
+	done
 	closecrypt
 }
 
@@ -581,8 +587,8 @@ main() {
 	checkroot
 	confirm
 
-	umountrootfs "${MOUNTPOINT}"
 	unmountpseudofs "${MOUNTPOINT}"
+	unmountrootfs "${MOUNTPOINT}"
 	closecrypt
 
 	runphases

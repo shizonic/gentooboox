@@ -55,5 +55,5 @@ info "Setting up pacman mirrorlist to switzerland"
 	_EOL
 } >/dev/null 2>&1
 
-umountrootfs "${MOUNTPOINT}"
+unmountrootfs "${MOUNTPOINT}"
 closecrypt

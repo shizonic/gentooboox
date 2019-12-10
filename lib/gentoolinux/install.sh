@@ -11,5 +11,5 @@ info "Extracting stage 3"
 		-C "${MOUNTPOINT}"
 } >/dev/null 2>&1
 
-umountrootfs "${MOUNTPOINT}"
+unmountrootfs "${MOUNTPOINT}"
 closecrypt

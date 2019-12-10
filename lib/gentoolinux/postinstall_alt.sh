@@ -123,6 +123,6 @@ info "Updating environment"
 	_EOL
 } >/dev/null 2>&1
 
-umountrootfs "${MOUNTPOINT}"
 unmountpseudofs "${MOUNTPOINT}"
+unmountrootfs "${MOUNTPOINT}"
 closecrypt
