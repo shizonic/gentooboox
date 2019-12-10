@@ -268,7 +268,7 @@ info "Enabling systemd services"
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		systemctl enable dnscrypt-proxy.service
 		systemctl enable nftables
-		systemctl enable systemd-swap
+		# systemctl enable systemd-swap
 	_EOL
 } >/dev/null 2>&1
 
