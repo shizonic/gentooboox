@@ -562,6 +562,7 @@ phase_postinstall() {
 	done
 }
 
+# needed for development
 phase_mount() {
 	opencrypt
 	for flavor in ${FLAVORS}; do
@@ -570,10 +571,11 @@ phase_mount() {
 	done
 }
 
+# needed for development
 phase_unmount() {
 	for flavor in ${FLAVORS}; do
-		unmountrootfs "${MOUNTPOINT}/${flavor}"
 		unmountpseudofs "${MOUNTPOINT}/${flavor}"
+		unmountrootfs "${MOUNTPOINT}/${flavor}"
 	done
 	closecrypt
 }
@@ -587,9 +589,12 @@ main() {
 	checkroot
 	confirm
 
-	unmountpseudofs "${MOUNTPOINT}"
-	unmountrootfs "${MOUNTPOINT}"
-	closecrypt
+	# needed if mounting and unmounting is required due to development
+	if [ ! "${PHASES}" = "mount" ] && [ ! "${PHASES}" = "unmount" ]; then
+		unmountpseudofs "${MOUNTPOINT}"
+		unmountrootfs "${MOUNTPOINT}"
+		closecrypt
+	fi
 
 	runphases
 }
