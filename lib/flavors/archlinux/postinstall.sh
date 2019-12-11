@@ -82,6 +82,11 @@ info "Setting up users and groups"
 		_EOP
 		chsh -s /bin/bash
 		
+		# useradd -m -s /bin/bash -U \
+		# 	-G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel,audio,lp,network,optical,power,proc,scanner,storage,users,video \
+		# "${LINBOX_USER}"
+		
+		
 		useradd -m -s /bin/bash -U \
 			-G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel \
 		"${LINBOX_USER}"
@@ -180,6 +185,11 @@ info "Enabling systemd services"
 		systemctl enable nftables
 		# systemctl enable systemd-swap
 	_EOL
+} >/dev/null 2>&1
+
+info "Finishing up"
+{
+	cmdchroot "chmod 755 /"
 } >/dev/null 2>&1
 
 unmountpseudofs "${MOUNTPOINT}"
