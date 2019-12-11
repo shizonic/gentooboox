@@ -540,24 +540,24 @@ phase_btrfs() {
 
 phase_preinstall() {
 	for flavor in ${FLAVORS}; do
-		if [ -f "lib/${flavor}/preinstall.sh" ]; then
-			. "lib/${flavor}/preinstall.sh"
+		if [ -f "lib/flavors/${flavor}/preinstall.sh" ]; then
+			. "lib/flavors/${flavor}/preinstall.sh"
 		fi
 	done
 }
 
 phase_install() {
 	for flavor in ${FLAVORS}; do
-		if [ -f "lib/${flavor}/install.sh" ]; then
-			. "lib/${flavor}/install.sh"
+		if [ -f "lib/flavors/${flavor}/install.sh" ]; then
+			. "lib/flavors/${flavor}/install.sh"
 		fi
 	done
 }
 
 phase_postinstall() {
 	for flavor in ${FLAVORS}; do
-		if [ -f "lib/${flavor}/postinstall.sh" ]; then
-			. "lib/${flavor}/postinstall.sh"
+		if [ -f "lib/flavors/${flavor}/postinstall.sh" ]; then
+			. "lib/flavors/${flavor}/postinstall.sh"
 		fi
 	done
 }
@@ -597,6 +597,8 @@ main() {
 	fi
 
 	runphases
+
+	log "Flavors '${FLAVORS}' successfully installed"
 }
 
 main "${@}"
