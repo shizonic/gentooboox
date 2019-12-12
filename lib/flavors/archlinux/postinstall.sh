@@ -247,9 +247,9 @@ info "Configuring Xorg server permissions"
 	_EOL
 } >/dev/null 2>&1
 
-info "Finishing up"
+info "Updating everything again and finishing up"
 {
-	cmdchroot "chmod 755 /"
+	cmdchroot "yay -Syu --devel --timeupdate --noconfirm"
 } >/dev/null 2>&1
 
 unmountpseudofs "${MOUNTPOINT}"

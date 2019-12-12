@@ -138,9 +138,12 @@ info "Installing grub bootloader"
 	_EOL
 } >/dev/null 2>&1
 
-info "Cleaning up"
+info "Cleaning and finishing up"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		# root top dir permissions are wrong by default
+		chmod 755 /
+		
 		# needed to be able to successfully unmount pseudofs
 		pkill gpg-agent ||:
 		pkill dirmngr   ||:
