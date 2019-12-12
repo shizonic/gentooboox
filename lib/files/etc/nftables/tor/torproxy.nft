@@ -1,0 +1,50 @@
+#!/usr/bin/nft -f
+# -*- mode: conf-space; tab-width: 2; -*-
+# vim: set ts=2 sw=2 et:
+
+flush ruleset
+
+define local = { 192.168.0.0/16, 127.0.0.0/8 }
+
+table nat {
+  chain tor {
+    ip daddr $local log level warn prefix "ATTEMPTED TO TORIFY LOCAL: " return
+
+    udp dport 53 log level debug prefix "TORDNS: " redirect to 53
+
+    ip protocol tcp log level debug prefix "TORIFIED: " redirect to 9040
+  }
+
+  chain output {
+    type nat hook output priority 0;
+
+    oif != lo skuid != tor jump tor
+  }
+
+  chain postrouting {
+    type nat hook postrouting priority 0;
+  }
+}
+
+table filter {
+  chain input {
+    type filter hook input priority 0;
+    ct state {established, related} counter accept
+
+    iif == lo accept
+    ip saddr $local accept
+
+    counter log level err prefix "INPUT REJECTED: " reject
+  }
+
+  chain output {
+    type filter hook output priority 0;
+    ct state {established, related} counter accept
+
+    oif == lo accept
+    skuid == tor accept
+    ip daddr $local accept
+
+    counter log level err prefix "OUTPUT REJECTED: " reject
+  }
+}

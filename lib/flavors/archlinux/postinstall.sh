@@ -178,6 +178,47 @@ info "Configuring grub"
 	_EOL
 } >/dev/null 2>&1
 
+info "Configuring Xorg keyboard"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		cat <<-EOL > "/etc/X11/xorg.conf.d/20-keyboard.conf"
+			Section "InputClass"
+				Identifier "system-keyboard"
+				MatchIsKeyboard "on"
+				Driver "libinput"
+				Option "XkbLayout" "${XKB_LAYOUT}"
+				Option "XkbVariant" "${XKB_VARIANT}"
+				Option "XkbOptions" "${XKB_OPTIONS}"
+			EndSection
+		
+			Section "InputClass"
+				Identifier "Default"
+				MatchIsKeyboard "on"
+				Driver "libinput"
+				Option "XkbLayout" "${XKB_LAYOUT}"
+				Option "XkbVariant" "${XKB_VARIANT}"
+				Option "XkbOptions" "${XKB_OPTIONS}"
+			EndSection
+		EOL
+		
+		cat <<-EOL > "/etc/default/keyboard"
+			XKBMODEL=""
+			XKBLAYOUT="${XKB_LAYOUT}"
+			XKBVARIANT="${XKB_VARIANT}"
+			XKBOPTIONS="${XKB_OPTIONS}"
+			BACKSPACE="guess"
+		EOL
+	_EOL
+} >/dev/null 2>&1
+
+info "Configuring Xorg server permissions"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		sed -i 's,needs_root_rights.*,needs_root_rights = no,g' "/etc/X11/Xwrapper.config"
+		printf "%s" "allowed_users = anybody" >> /etc/X11/Xwrapper.config
+	_EOL
+} >/dev/null 2>&1
+
 info "Enabling systemd services"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
