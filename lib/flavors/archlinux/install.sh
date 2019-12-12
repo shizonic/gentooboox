@@ -47,6 +47,7 @@ info "Updating and installing base system and required packages"
 		cdrtools \
 		crda \
 		dhclient \
+		dhcpcd \
 		dialog \
 		dnscrypt-proxy \
 		dosfstools \

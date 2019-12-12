@@ -4,7 +4,7 @@ format:
 	shfmt -l -w linbox.sh lib/flavors/*/*.sh
 
 check:
-	shellcheck --exclude=SC1090,SC2039 linbox.sh lib/flavors/*/*.sh
+	shellcheck linbox.sh lib/flavors/*/*.sh
 
 lint:
 	shfmt -d linbox.sh lib/flavors/*/*.sh

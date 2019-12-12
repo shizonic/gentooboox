@@ -48,11 +48,15 @@ info "Configuring keymap"
 
 info "Configuring hostname"
 {
+	# In POSIX sh, HOSTNAME is undefined.
+	# shellcheck disable=SC2039
 	cmdchroot "printf '%s' '${HOSTNAME}' > /etc/hostname"
 } >/dev/null 2>&1
 
 info "Configuring hosts"
 {
+	# In POSIX sh, HOSTNAME is undefined.
+	# shellcheck disable=SC2039
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		cat <<-EOL > "/etc/hosts"
 			#<ip-address>   <hostname.domain.org>       <hostname>

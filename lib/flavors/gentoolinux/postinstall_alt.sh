@@ -68,6 +68,8 @@ info "Configure locales"
 
 info "Configure host and domain name"
 {
+	# In POSIX sh, HOSTNAME is undefined.
+	# shellcheck disable=SC2039
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		source /etc/profile
 		

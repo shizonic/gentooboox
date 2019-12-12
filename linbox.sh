@@ -541,7 +541,12 @@ phase_btrfs() {
 phase_preinstall() {
 	for flavor in ${FLAVORS}; do
 		if [ -f "lib/flavors/${flavor}/preinstall.sh" ]; then
-			. "lib/flavors/${flavor}/preinstall.sh"
+			info "Flavor '${flavor}'"
+			{
+				# Can't follow non-constant source. Use a directive to specify location.
+				# shellcheck disable=SC1090
+				. "lib/flavors/${flavor}/preinstall.sh"
+			}
 		fi
 	done
 }
@@ -549,7 +554,12 @@ phase_preinstall() {
 phase_install() {
 	for flavor in ${FLAVORS}; do
 		if [ -f "lib/flavors/${flavor}/install.sh" ]; then
-			. "lib/flavors/${flavor}/install.sh"
+			info "Flavor '${flavor}'"
+			{
+				# Can't follow non-constant source. Use a directive to specify location.
+				# shellcheck disable=SC1090
+				. "lib/flavors/${flavor}/install.sh"
+			}
 		fi
 	done
 }
@@ -557,7 +567,12 @@ phase_install() {
 phase_postinstall() {
 	for flavor in ${FLAVORS}; do
 		if [ -f "lib/flavors/${flavor}/postinstall.sh" ]; then
-			. "lib/flavors/${flavor}/postinstall.sh"
+			info "Flavor '${flavor}'"
+			{
+				# Can't follow non-constant source. Use a directive to specify location.
+				# shellcheck disable=SC1090
+				. "lib/flavors/${flavor}/postinstall.sh"
+			}
 		fi
 	done
 }
