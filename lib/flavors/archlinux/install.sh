@@ -56,6 +56,7 @@ info "Updating and installing base system and required packages"
 		ethtool \
 		expect \
 		git \
+		go \
 		gptfdisk \
 		grub \
 		haveged \
@@ -71,6 +72,8 @@ info "Updating and installing base system and required packages"
 		openresolv \
 		openssh \
 		pacman-contrib \
+		python \
+		python2 \
 		rsync \
 		systemd-swap \
 		tmux \

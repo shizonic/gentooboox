@@ -178,6 +178,34 @@ info "Configuring grub"
 	_EOL
 } >/dev/null 2>&1
 
+info "Enabling systemd services"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		systemctl enable dnscrypt-proxy.service
+		systemctl enable nftables
+		# systemctl enable systemd-swap
+	_EOL
+} >/dev/null 2>&1
+
+info "Making pacman loving candy =)"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		sed -i 's@# Misc options@# Misc option\nILoveCandy@g' /etc/pacman.conf
+		sed -i 's@#Color@Color@g' /etc/pacman.conf
+	_EOL
+} >/dev/null 2>&1
+
+info "Installing and configuring yay aur helper"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		cd /home/${LINBOX_USER}
+		sudo -u ${LINBOX_USER} git clone https://aur.archlinux.org/yay.git
+		cd yay
+		sudo -u ${LINBOX_USER} makepkg --syncdeps --install --noconfirm
+		rm -rf /home/${LINBOX_USER}/yay
+	_EOL
+} >/dev/null 2>&1
+
 info "Configuring Xorg keyboard"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
@@ -216,26 +244,6 @@ info "Configuring Xorg server permissions"
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		sed -i 's,needs_root_rights.*,needs_root_rights = no,g' "/etc/X11/Xwrapper.config"
 		printf "%s" "allowed_users = anybody" >> /etc/X11/Xwrapper.config
-	_EOL
-} >/dev/null 2>&1
-
-info "Installing yay aur helper"
-{
-	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		cd /root
-		git clone https://aur.archlinux.org/yay.git
-		cd yay
-		makepkg -si
-		rm -rf /root/yay
-	_EOL
-} >/dev/null 2>&1
-
-info "Enabling systemd services"
-{
-	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		systemctl enable dnscrypt-proxy.service
-		systemctl enable nftables
-		# systemctl enable systemd-swap
 	_EOL
 } >/dev/null 2>&1
 
