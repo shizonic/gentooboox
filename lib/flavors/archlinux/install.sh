@@ -55,9 +55,11 @@ info "Updating and installing base system and required packages"
 		efibootmgr \
 		ethtool \
 		expect \
+		git \
 		gptfdisk \
 		grub \
 		haveged \
+		intel-ucode \
 		iproute2 \
 		iw \
 		kbd \
@@ -81,7 +83,9 @@ info "Updating and installing base system and required packages"
 		wireless_tools \
 		wpa_supplicant \
 		xz \
-		zip"
+		zip \
+		zsh \
+		zsh-completions"
 } >/dev/null 2>&1
 
 info "Installing grub bootloader"

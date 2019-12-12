@@ -219,6 +219,17 @@ info "Configuring Xorg server permissions"
 	_EOL
 } >/dev/null 2>&1
 
+info "Installing yay aur helper"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		cd /root
+		git clone https://aur.archlinux.org/yay.git
+		cd yay
+		makepkg -si
+		rm -rf /root/yay
+	_EOL
+} >/dev/null 2>&1
+
 info "Enabling systemd services"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
