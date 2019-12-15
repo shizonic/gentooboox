@@ -116,8 +116,6 @@ mountpseudofs() {
 		mkdir -p "${1}/${d}"
 	done
 
-	cp -L "/etc/resolv.conf" "${1}/etc/"
-
 	mountpoint -q "${1}/proc" || mount proc "${1}/proc" -t proc -o nosuid,noexec,nodev
 	mountpoint -q "${1}/sys" || mount sys "${1}/sys" -t sysfs -o nosuid,noexec,nodev,ro
 	mountpoint -q "${1}/dev" || mount udev "${1}/dev" -t devtmpfs -o mode=0755,nosuid
@@ -126,15 +124,20 @@ mountpseudofs() {
 	mountpoint -q "${1}/tmp" || mount tmp "${1}/tmp" -t tmpfs -o mode=1777,strictatime,nodev,nosuid
 	mountpoint -q "${1}/run" || mount /run "${1}/run" --bind
 
-	if [ -e "/sys/firmware/efi/systab" ] && ! mountpoint -q "${1}/sys/firmware/efi/efivars"; then
-		mkdir -p "${1}/sys/firmware/efi/efivars"
-		mount -t efivarfs efivarfs "${1}/sys/firmware/efi/efivars"
+	if [ -e /sys/firmware/efi/systab ] && ! mountpoint -q "${1}/sys/firmware/efi/efivars"; then
+		mount efivarfs "${1}/sys/firmware/efi/efivars" -t efivarfs -o nosuid,noexec,nodev
+	fi
+
+	if ! mountpoint -q "${1}/etc/resolv.conf"; then
+		touch "${1}/etc/resolv.conf"
+		mount "/etc/resolv.conf" "${1}/etc/resolv.conf" --bind
 	fi
 }
 
 unmountpseudofs() {
 	for d in \
 		proc \
+		etc/resolv.conf \
 		sys/firmware/efi/efivars \
 		sys \
 		dev/pts \
@@ -144,7 +147,6 @@ unmountpseudofs() {
 		run; do
 		unmount "${1}/${d}"
 	done
-	rm -f "${1}/etc/resolv.conf"
 }
 
 unmount() {

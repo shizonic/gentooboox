@@ -11,3 +11,6 @@ lint:
 
 qemu:
 	$(SUDO) qemu-system-x86_64 -m 256 -hda /dev/sda -enable-kvm
+
+install-shfmt:
+	cd $(mktemp -d); go mod init tmp; go get mvdan.cc/sh/cmd/shfmt; cd -
