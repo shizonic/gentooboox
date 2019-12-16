@@ -71,8 +71,8 @@ info "Configuring sudoers"
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		mkdir -p /etc/sudoers.d
 		
-		cat <<-EOL > "/etc/sudoers.d/${LINBOX_USER}"
-			${LINBOX_USER} ALL=(ALL) NOPASSWD: ALL
+		cat <<-EOL > "/etc/sudoers.d/${USER}"
+			${USER} ALL=(ALL) NOPASSWD: ALL
 		EOL
 	_EOL
 } >/dev/null 2>&1
@@ -81,23 +81,23 @@ info "Setting up users and groups"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		cat <<-_EOP | passwd
-			${LINBOX_ROOT_PASSWORD}
-			${LINBOX_ROOT_PASSWORD}
+			${ROOT_PASSWORD}
+			${ROOT_PASSWORD}
 		_EOP
 		chsh -s /bin/bash
 		
 		# useradd -m -s /bin/bash -U \
 		# 	-G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel,audio,lp,network,optical,power,proc,scanner,storage,users,video \
-		# "${LINBOX_USER}"
+		# "${USER}"
 		
 		
 		useradd -m -s /bin/bash -U \
 			-G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel \
-		"${LINBOX_USER}"
+		"${USER}"
 		
-		cat <<-_EOP | passwd "${LINBOX_USER}"
-			${LINBOX_USER_PASSWORD}
-			${LINBOX_USER_PASSWORD}
+		cat <<-_EOP | passwd "${USER}"
+			${USER_PASSWORD}
+			${USER_PASSWORD}
 		_EOP
 	_EOL
 } >/dev/null 2>&1
@@ -203,11 +203,11 @@ info "Making pacman loving candy =)"
 info "Installing and configuring yay aur helper"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
-		cd /home/${LINBOX_USER}
-		sudo -u ${LINBOX_USER} git clone https://aur.archlinux.org/yay.git
+		cd /home/${USER}
+		sudo -u ${USER} git clone https://aur.archlinux.org/yay.git
 		cd yay
-		sudo -u ${LINBOX_USER} makepkg --syncdeps --install --noconfirm
-		rm -rf /home/${LINBOX_USER}/yay
+		sudo -u ${USER} makepkg --syncdeps --install --noconfirm
+		rm -rf /home/${USER}/yay
 	_EOL
 } >/dev/null 2>&1
 

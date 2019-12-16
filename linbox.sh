@@ -251,12 +251,12 @@ This will overwrite data on ${DISK} irrevocably.
 	XKB_VARIANT                "${XKB_VARIANT}"
 	XKB_OPTIONS                "${XKB_OPTIONS}"
 	TIMEZONE                   "${TIMEZONE}"
-	LINBOX_ROOT_PASSWORD       "${LINBOX_ROOT_PASSWORD}"
-	LINBOX_USER                "${LINBOX_USER}"
-	LINBOX_USER_PASSWORD       "${LINBOX_USER_PASSWORD}"
-	LINBOX_LUKS_PASSWORD       "${LINBOX_LUKS_PASSWORD}"
-	LINBOX_GRUB_USER           "${LINBOX_GRUB_USER}"
-	LINBOX_GRUB_PASSWORD       "${LINBOX_GRUB_PASSWORD}"
+	ROOT_PASSWORD              "${ROOT_PASSWORD}"
+	USER                       "${USER}"
+	USER_PASSWORD              "${USER_PASSWORD}"
+	LUKS_PASSWORD              "${LUKS_PASSWORD}"
+	GRUB_USER                  "${GRUB_USER}"
+	GRUB_PASSWORD              "${GRUB_PASSWORD}"
 	PHASES                     "${PHASES}"
 	MOUNTPOINT                 "${MOUNTPOINT}"
 	TMPDIR                     "${TMPDIR}"
@@ -292,12 +292,12 @@ defaults() {
 	: "${XKB_VARIANT:="de_nodeadkeys"}"
 	: "${XKB_OPTIONS:=""}"
 	: "${TIMEZONE:="Europe/Zurich"}"
-	: "${LINBOX_ROOT_PASSWORD:="$(genpasswd)"}"
-	: "${LINBOX_USER:="user"}"
-	: "${LINBOX_USER_PASSWORD:="${LINBOX_ROOT_PASSWORD}"}"
-	: "${LINBOX_LUKS_PASSWORD:="${LINBOX_ROOT_PASSWORD}"}"
-	: "${LINBOX_GRUB_USER:="${LINBOX_USER}"}"
-	: "${LINBOX_GRUB_PASSWORD:="${LINBOX_ROOT_PASSWORD}"}"
+	: "${ROOT_PASSWORD:="$(genpasswd)"}"
+	: "${USER:="user"}"
+	: "${USER_PASSWORD:="${ROOT_PASSWORD}"}"
+	: "${LUKS_PASSWORD:="${ROOT_PASSWORD}"}"
+	: "${GRUB_USER:="${USER}"}"
+	: "${GRUB_PASSWORD:="${ROOT_PASSWORD}"}"
 	: "${PHASES:="wipefs partition encrypt mkfs btrfs preinstall install postinstall"}"
 	: "${MOUNTPOINT:="/mnt/linbox"}"
 	: "${TMPDIR:="$(mktemp --directory --suffix ".linbox" 2>/dev/null || printf '%s' '/tmp/linbox')"}"
@@ -316,6 +316,9 @@ defaults() {
 }
 
 args() {
+	unset HOSTNAME
+	unset USER
+
 	param() {
 		if [ -n "${3}" ]; then
 			eval "${1}=\"${3}\""
@@ -345,12 +348,12 @@ args() {
 		-X | --xkb-variant) param "XKB_VARIANT" "${1}" "${2}" ;;
 		-Z | --xkb-options) param "XKB_OPTIONS" "${1}" "${2}" ;;
 		-t | --timezone) param "TIMEZONE" "${1}" "${2}" ;;
-		-p | --password) param "LINBOX_ROOT_PASSWORD" "${1}" "${2}" ;;
-		-u | --user) param "LINBOX_USER" "${1}" "${2}" ;;
-		-U | --user-password) param "LINBOX_USER_PASSWORD" "${1}" "${2}" ;;
-		-P | --luks-password) param "LINBOX_LUKS_PASSWORD" "${1}" "${2}" ;;
-		-g | --grub-user) param "LINBOX_GRUB_USER" "${1}" "${2}" ;;
-		-G | --grub-password) param "LINBOX_GRUB_PASSWORD" "${1}" "${2}" ;;
+		-p | --password) param "ROOT_PASSWORD" "${1}" "${2}" ;;
+		-u | --user) param "USER" "${1}" "${2}" ;;
+		-U | --user-password) param "USER_PASSWORD" "${1}" "${2}" ;;
+		-P | --luks-password) param "LUKS_PASSWORD" "${1}" "${2}" ;;
+		-g | --grub-user) param "GRUB_USER" "${1}" "${2}" ;;
+		-G | --grub-password) param "GRUB_PASSWORD" "${1}" "${2}" ;;
 		-M | --mountpoint) param "MOUNTPOINT" "${1}" "${2}" ;;
 		-T | --tmpdir) param "TMPDIR" "${1}" "${2}" ;;
 		-Y | --phases) param "PHASES" "${1}" "${2}" ;;
@@ -431,7 +434,7 @@ phase_encrypt() {
 
 	info "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
 	{
-		printf "%s" "${LINBOX_LUKS_PASSWORD}" |
+		printf "%s" "${LUKS_PASSWORD}" |
 			cryptsetup \
 				--batch-mode \
 				--type luks1 \
@@ -442,7 +445,7 @@ phase_encrypt() {
 				--use-random \
 				luksFormat "$(partitionpath 4)" -
 
-		printf "%s" "${LINBOX_LUKS_PASSWORD}" |
+		printf "%s" "${LUKS_PASSWORD}" |
 			cryptsetup \
 				--batch-mode \
 				--type luks1 \
@@ -456,13 +459,13 @@ phase_encrypt() {
 
 	info "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
 	{
-		printf "%s" "${LINBOX_LUKS_PASSWORD}" |
+		printf "%s" "${LUKS_PASSWORD}" |
 			cryptsetup \
 				--iter-time 100 \
 				luksAddKey "$(partitionpath 4)" \
 				"${TMPDIR}/crypt/crypt.key"
 
-		printf "%s" "${LINBOX_LUKS_PASSWORD}" |
+		printf "%s" "${LUKS_PASSWORD}" |
 			cryptsetup \
 				--iter-time 100 \
 				luksAddKey "$(partitionpath 3)" \

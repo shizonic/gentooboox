@@ -18,18 +18,18 @@ info "Setting up users"
 		source /etc/profile
 		
 		cat <<-_EOP | passwd
-			${LINBOX_ROOT_PASSWORD}
-			${LINBOX_ROOT_PASSWORD}
+			${ROOT_PASSWORD}
+			${ROOT_PASSWORD}
 		_EOP
 		chsh -s /bin/bash
 		
 		useradd -m -s /bin/bash -U \
 			-G wheel,portage,audio,video,usb,cdrom \
-			"${LINBOX_USER}"
+			"${USER}"
 		
-		cat <<-_EOP | passwd "${LINBOX_USER}"
-			${LINBOX_USER_PASSWORD}
-			${LINBOX_USER_PASSWORD}
+		cat <<-_EOP | passwd "${USER}"
+			${USER_PASSWORD}
+			${USER_PASSWORD}
 		_EOP
 	_EOL
 } >/dev/null 2>&1
