@@ -194,6 +194,14 @@ copychroot() {
 		{} "${MOUNTPOINT}/${2}" \;
 }
 
+readpkgs() {
+	pkgs=""
+	while read -r pkg; do
+		pkgs="${pkg} ${pkgs}"
+	done <"lib/flavors/${1}/packages/${2}"
+	printf "%s" "${pkgs}"
+}
+
 usage() {
 	cat <<_EOF
 Usage: linbox.sh [options]
