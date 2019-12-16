@@ -4,9 +4,9 @@ opencrypt
 mountrootfs "archlinux" "${MOUNTPOINT}"
 mountpseudofs "${MOUNTPOINT}"
 
-info "Copying generic configuration files"
+info "Copying common configuration files"
 {
-	copychroot "lib/files" "/"
+	copychroot "lib/common/files" "/"
 } >/dev/null 2>&1
 
 info "Copying archlinux specific configuration files"
