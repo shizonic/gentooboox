@@ -196,11 +196,10 @@ copychroot() {
 
 readpkgs() {
 	pkgs=""
-	for pkglist in ${2}; do
-		while read -r pkg; do
-			pkgs="${pkg} ${pkgs}"
-		done <"lib/flavors/${1}/packages/${pkglist}"
-	done
+	while read -r pkg; do
+		[ "${pkg##\#*}" ] || continue
+		pkgs="${pkg} ${pkgs}"
+	done <"lib/flavors/${1}/packages"
 	printf "%s" "${pkgs}"
 }
 

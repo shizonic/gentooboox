@@ -9,9 +9,9 @@ info "Initialize pacman keyring"
 	cmdchroot "pacman-key --init && pacman-key --populate"
 } >/dev/null 2>&1
 
-info "Updating and installing base system and core packages"
+info "Updating and installing packages"
 {
-	cmdchroot "pacman -Syyu --noconfirm --needed $(readpkgs "archlinux" "core")"
+	cmdchroot "pacman -Syyu --noconfirm --needed $(readpkgs "archlinux")"
 } >/dev/null 2>&1
 
 info "Installing grub bootloader"

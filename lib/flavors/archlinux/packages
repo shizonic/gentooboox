@@ -1,3 +1,5 @@
+# core
+# -------------------------------
 acpi
 arch-install-scripts
 base
@@ -5,20 +7,17 @@ base-devel
 bash-completion
 btrfs-progs
 ca-certificates
-cdrtools
 crda
 dhclient
 dhcpcd
 dialog
 dnscrypt-proxy
 dosfstools
-dvd+rw-tools
 ed
 efibootmgr
 ethtool
 expect
 git
-go
 gptfdisk
 grub
 haveged
@@ -26,28 +25,48 @@ intel-ucode
 iproute2
 iw
 kbd
-lynx
 lsof
+lynx
 lz4
 net-tools
 nftables
 openresolv
 openssh
 pacman-contrib
-python
-python2
 rsync
 systemd-swap
 tmux
+unrar
 unzip
 vim
 wget
 wireguard-arch
 wireguard-tools
-wireless-regdb
 wireless_tools
+wireless-regdb
 wpa_supplicant
 xz
 zip
+# -------------------------------
+
+
+# shells
+# -------------------------------
 zsh
 zsh-completions
+# -------------------------------
+
+
+# development
+# -------------------------------
+go
+python
+python2
+# -------------------------------
+
+
+# utils
+# -------------------------------
+cdrtools
+dvd+rw-tools
+# -------------------------------
