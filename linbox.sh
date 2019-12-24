@@ -287,7 +287,7 @@ _EOF
 }
 
 defaults() {
-	: "${FLAVORS:="archlinux"}"
+	: "${FLAVORS:="voidlinux"}"
 	: "${ARCH:="x86_64"}"
 	: "${DISK:="/dev/sda"}"
 	: "${BIOS_PART_SIZE:="2M"}"

@@ -1,0 +1,71 @@
+# core
+# -------------------------------
+acpi
+base-system
+base-devel
+bash
+bash-completion
+btrfs-progs
+ca-certificates
+crda
+dhclient
+dhcpcd
+dialog
+dnscrypt-proxy
+dosfstools
+ed
+efibootmgr
+ethtool
+expect
+git
+gptfdisk
+grub
+grub-utils
+grub-x86_64-efi
+haveged
+intel-ucode
+iproute2
+iw
+kbd
+lsof
+lynx
+lz4
+net-tools
+nftables
+openresolv
+openssh
+rsync
+tmux
+unrar
+unzip
+vim
+wget
+wireguard
+wireguard-tools
+wireless_tools
+wpa_supplicant
+xz
+zip
+# -------------------------------
+
+
+# shells
+# -------------------------------
+zsh
+zsh-completions
+# -------------------------------
+
+
+# development
+# -------------------------------
+go
+python
+python3
+# -------------------------------
+
+
+# utils
+# -------------------------------
+cdrtools
+dvd+rw-tools
+# -------------------------------
