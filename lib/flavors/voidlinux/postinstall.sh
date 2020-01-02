@@ -112,7 +112,7 @@ info "Setting up users and groups"
 		_EOP
 		
 		groupadd adbusers
-		groupadd proc
+		# groupadd proc
 		usermod -a -G adbusers "${VOIDBOX_USER}"
 		usermod -a -G proc "${VOIDBOX_USER}"
 	_EOL
