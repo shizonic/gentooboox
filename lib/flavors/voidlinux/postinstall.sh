@@ -272,6 +272,25 @@ info "Disabling unused services"
 	_EOL
 } >/dev/null 2>&1
 
+info "Configuring dhcpcd"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		cat <<-_EOF >> "/etc/dhcpcd.conf"
+		
+			# Speed up DHCP by disabling ARP probing
+			noarp
+		_EOF
+	_EOL
+} >/dev/null 2>&1
+
+info "Configuring zramen"
+{
+	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		sed -i "s,zramen make.*,zramen make > /dev/null 2&>1," "/etc/sv/zramen/run"
+		sed -i "s,zramen toss.*,zramen toss > /dev/null 2&>1," "/etc/sv/zramen/finish"
+	_EOL
+} >/dev/null 2>&1
+
 info "Enabling runit services"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
@@ -291,7 +310,7 @@ info "Enabling runit services"
 		ln -sf /etc/sv/socklog-unix /var/service
 		ln -sf /etc/sv/udevd /var/service
 		ln -sf /etc/sv/wpa_supplicant /var/service
-		# ln -sf /etc/sv/zramen /var/service
+		ln -sf /etc/sv/zramen /var/service
 		# ln -sf /etc/sv/mcelog /var/service
 	_EOL
 } >/dev/null 2>&1
