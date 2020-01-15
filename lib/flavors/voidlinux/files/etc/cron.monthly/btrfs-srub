@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /bin/btrfs scrub start / > /dev/null 2>&1

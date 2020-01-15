@@ -1,0 +1,26 @@
+sda1  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sda1
+sda2  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sda2
+sda3  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sda3
+sda4  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sda4
+sda5  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sda5
+sda6  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sda6
+sda7  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sda7
+sda8  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sda8
+
+sdb1  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdb1
+sdb2  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdb2
+sdb3  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdb3
+sdb4  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdb4
+sdb5  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdb5
+sdb6  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdb6
+sdb7  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdb7
+sdb8  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdb8
+
+sdc1  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdc1
+sdc2  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdc2
+sdc3  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdc3
+sdc4  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdc4
+sdc5  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdc5
+sdc6  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdc6
+sdc7  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdc7
+sdc8  -fstype=auto,async,nodev,user,noexec,nosuid,umask=002  :/dev/sdc8

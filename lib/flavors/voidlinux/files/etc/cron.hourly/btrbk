@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/sbin/btrbk -q run > /dev/null 2>&1
