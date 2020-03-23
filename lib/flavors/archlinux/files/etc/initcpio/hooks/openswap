@@ -9,7 +9,7 @@ run_hook()
     ## End of optional
 
     mkdir crypt_key_device
-    mount -t btrfs -o subvol=/subvols/@boot /dev/mapper/cryptroot crypt_key_device
+    mount -t btrfs -o subvol=/subvols/archlinux/@boot /dev/mapper/cryptroot crypt_key_device
     cryptsetup open --key-file crypt_key_device/crypt.key /dev/disk/by-uuid/@@CRYPTSWAP_UUID@@ cryptswap
     umount crypt_key_device
 }

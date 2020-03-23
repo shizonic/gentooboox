@@ -5,8 +5,9 @@ mountrootfs "archlinux" "${MOUNTPOINT}"
 
 info "Retreiving archlinux bootstrap tarball"
 {
+	filename="$(curl https://mirror.puzzle.ch/archlinux/iso/latest/ | grep -oP "archlinux-bootstrap.*\.tar\.gz" | head -1)"
 	wget --directory "${TMPDIR}" \
-		"https://mirror.puzzle.ch/archlinux/iso/2019.12.01/archlinux-bootstrap-2019.12.01-x86_64.tar.gz"
+		"https://mirror.puzzle.ch/archlinux/iso/latest/${filename}"
 } >/dev/null 2>&1
 
 info "Extracting archlinux bootstrap tarball"

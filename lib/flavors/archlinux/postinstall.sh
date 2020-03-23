@@ -148,15 +148,13 @@ info "Configuring crypttab"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		cat <<-EOL > "/etc/crypttab"
-			# If one would like to use crypttab
-			# cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
-			# cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
+			cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
+			cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
 		EOL
 		
 		cat <<-EOL > "/etc/crypttab.initramfs"
-			# If one would like to use crypttab
-			# cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
-			# cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
+			cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
+			cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
 		EOL
 	_EOL
 } >/dev/null 2>&1
