@@ -21,6 +21,10 @@ swapsize() {
 	echo "x=l($(awk '/MemTotal/{printf "%s",  $2/1024/1024}' /proc/meminfo))/l(2); scale=0; 2^((x+0.5)/1)*2" | bc -l
 }
 
+mkswapfile() {
+
+}
+
 genpasswd() {
 	tr </dev/urandom -dc _A-Z-a-z-0-9 | head -c 16
 }
@@ -34,28 +38,17 @@ deviceuuid() {
 }
 
 opencrypt() {
-	if ! cryptsetup status "cryptswap" >/dev/null 2>&1; then
-		cryptsetup \
-			--key-file "${TMPDIR}/crypt/crypt.key" \
-			luksOpen "$(partitionpath 4)" \
-			"cryptswap"
-	fi
-
-	if ! cryptsetup status "cryptroot" >/dev/null 2>&1; then
+	if ! cryptsetup status "crypt-$(deviceuuid "$(partitionpath 3)")" >/dev/null 2>&1; then
 		cryptsetup \
 			--key-file "${TMPDIR}/crypt/crypt.key" \
 			luksOpen "$(partitionpath 3)" \
-			"cryptroot"
+			"crypt-$(deviceuuid "$(partitionpath 3)")"
 	fi
 }
 
 closecrypt() {
-	if cryptsetup status "cryptswap" >/dev/null 2>&1; then
-		cryptsetup luksClose "cryptswap" || :
-	fi
-
-	if cryptsetup status "cryptroot" >/dev/null 2>&1; then
-		cryptsetup luksClose "cryptroot" || :
+	if cryptsetup status "crypt-$(deviceuuid "$(partitionpath 3)")" >/dev/null 2>&1; then
+		cryptsetup luksClose "crypt-$(deviceuuid "$(partitionpath 3)")" || :
 	fi
 }
 
@@ -67,7 +60,7 @@ mountsubvol() {
 		mount \
 			--types "btrfs" \
 			--options "${mount_opts}" \
-			"/dev/mapper/cryptroot" \
+			"/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")" \
 			"${2}"
 	fi
 }
@@ -213,8 +206,8 @@ Options:
    -d --disk <disk>                       Set disk to partition (/dev/sda if unset).
    -b --bios-part-size <bios-part-size>   Default bios partition size to use (2M if unset).
    -e --efi-part-size <efi-part-size>     Default efi partition size to use (512M if unset).
-   -s --swap-part-size <swap-part-size>   Default swap partition to use (2x size of mem if unset).
    -r --root-part--size <root-part-size>  Default root partition size to use (rest of space if unset).
+   -s --swapfile-size <swapfile-size>     Default swapfile size to use (2x size of mem if unset).
    -H --hostname <hostname>               Default hostname to use (xps if unset).
    -l --locale <locale>                   Default locale to use (en_US.UTF-8 if unset).
    -k --keymap <keymap>                   Default keymap to use (de_CH-latin1 if unset).
@@ -251,8 +244,8 @@ This will overwrite data on ${DISK} irrevocably.
 	DISK                       "${DISK}"
 	BIOS_PART_SIZE             "${BIOS_PART_SIZE}"
 	EFI_PART_SIZE              "${EFI_PART_SIZE}"
-	SWAP_PART_SIZE             "${SWAP_PART_SIZE}"
 	ROOT_PART_SIZE             "${ROOT_PART_SIZE}"
+	SWAPFILE_SIZE              "${SWAPFILE_SIZE}"
 	HOSTNAME                   "${HOSTNAME}"
 	LOCALE                     "${LOCALE}"
 	KEYMAP                     "${KEYMAP}"
@@ -292,7 +285,7 @@ defaults() {
 	: "${DISK:="/dev/sda"}"
 	: "${BIOS_PART_SIZE:="2M"}"
 	: "${EFI_PART_SIZE:="512M"}"
-	: "${SWAP_PART_SIZE:="$(swapsize)G"}"
+	: "${SWAPFILE_SIZE:="$(swapsize)G"}"
 	: "${ROOT_PART_SIZE:="0"}"
 	: "${HOSTNAME:="linbox"}"
 	: "${LOCALE:="en_US.UTF-8"}"
@@ -348,7 +341,7 @@ args() {
 		-d | --disk) param "DISK" "${1}" "${2}" ;;
 		-b | --bios-part-size) param "BIOS_PART_SIZE" "${1}" "${2}" ;;
 		-e | --efi-part-size) param "EFI_PART_SIZE" "${1}" "${2}" ;;
-		-s | --swap-part-size) param "SWAP_PART_SIZE" "${1}" "${2}" ;;
+		-s | --swapfile-size) param "SWAPFILE_SIZE" "${1}" "${2}" ;;
 		-r | --root-part--size) param "ROOT_PART_SIZE" "${1}" "${2}" ;;
 		-H | --hostname) param "HOSTNAME" "${1}" "${2}" ;;
 		-l | --locale) param "LOCALE" "${1}" "${2}" ;;
@@ -423,8 +416,6 @@ phase_partition() {
 			--typecode=1:EF02 \
 			--new=2:0:+"${EFI_PART_SIZE}" \
 			--typecode=2:EF00 \
-			--new=4:0:+"${SWAP_PART_SIZE}" \
-			--typecode=4:8300 \
 			--new=3:0:+"${ROOT_PART_SIZE}" \
 			--typecode=3:8300 \
 			"${DISK}"
@@ -441,19 +432,8 @@ phase_encrypt() {
 		chmod 000 "${TMPDIR}/crypt/crypt.key"
 	} >/dev/null 2>&1
 
-	info "Formatting LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
+	info "Formatting LUKS root partition ($(partitionpath 3))"
 	{
-		printf "%s" "${LUKS_PASSWORD}" |
-			cryptsetup \
-				--batch-mode \
-				--type luks1 \
-				--cipher aes-xts-plain64 \
-				--key-size 512 \
-				--hash sha512 \
-				--iter-time 100 \
-				--use-random \
-				luksFormat "$(partitionpath 4)" -
-
 		printf "%s" "${LUKS_PASSWORD}" |
 			cryptsetup \
 				--batch-mode \
@@ -466,14 +446,8 @@ phase_encrypt() {
 				luksFormat "$(partitionpath 3)" -
 	} >/dev/null 2>&1
 
-	info "Adding LUKS keyfile to LUKS root & swap partitions ($(partitionpath 3), $(partitionpath 4))"
+	info "Adding LUKS keyfile to LUKS root partition ($(partitionpath 3))"
 	{
-		printf "%s" "${LUKS_PASSWORD}" |
-			cryptsetup \
-				--iter-time 100 \
-				luksAddKey "$(partitionpath 4)" \
-				"${TMPDIR}/crypt/crypt.key"
-
 		printf "%s" "${LUKS_PASSWORD}" |
 			cryptsetup \
 				--iter-time 100 \
@@ -490,19 +464,12 @@ phase_mkfs() {
 		mkfs.vfat -F 32 -n "EFI" "$(partitionpath 2)"
 	} >/dev/null 2>&1
 
-	info "Setting up swap area for swap partition (cryptswap)"
-	{
-		mkswap \
-			--label swap \
-			"/dev/mapper/cryptswap"
-	} >/dev/null 2>&1
-
-	info "Creating BTRFS filesystem for root partition (cryptroot)"
+	info "Creating BTRFS filesystem for root partition (crypt-$(deviceuuid "$(partitionpath 3)"))"
 	{
 		mkfs.btrfs \
 			--force \
 			--label root \
-			"/dev/mapper/cryptroot"
+			"/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")"
 	} >/dev/null 2>&1
 
 	closecrypt
@@ -516,9 +483,28 @@ phase_btrfs() {
 	{
 		mkdir -p "${MOUNTPOINT}/subvols"
 		for subvol in \
+			@swap \
 			@home; do
 			btrfs subvolume create "${MOUNTPOINT}/subvols/${subvol}"
 		done
+	} >/dev/null 2>&1
+
+	info "Preparing swapfile"
+	{
+		truncate -s 0 "${MOUNTPOINT}/subvols/@swap/swapfile"
+		chattr +C "${MOUNTPOINT}/subvols/@swap/swapfile"
+		btrfs property set "${MOUNTPOINT}/subvols/@swap/swapfile"
+		fallocate -l "${SWAPFILE_SIZE}" "${MOUNTPOINT}/subvols/@swap/swapfile"
+		chmod 600 "${MOUNTPOINT}/subvols/@swap/swapfile"
+		mkswap "${MOUNTPOINT}/subvols/@swap/swapfile"
+		swapon "${MOUNTPOINT}/subvols/@swap/swapfile"
+
+		# TODO: make function to calculate offset
+		# See: https://endeavouros.com/docs/encrypted-installation-2/btrfsonluks-quick-copypaste-version/
+		offset=$(lib/common/files/usr/bin/btrfs_map_physical "${MOUNTPOINT}/subvols/@swap/swapfile")
+		offset_arr=($(echo ${offset}))
+		offset_pagesize=($(getconf PAGESIZE))
+		offset=$((offset_arr[25] / offset_pagesize))
 	} >/dev/null 2>&1
 
 	info "Creating distro specific BTRFS live subvolumes"
@@ -526,8 +512,7 @@ phase_btrfs() {
 		for flavor in ${FLAVORS}; do
 			mkdir -p "${MOUNTPOINT}/subvols/${flavor}"
 			for subvol in \
-				@ \
-				@boot; do
+				@; do
 				btrfs subvolume create "${MOUNTPOINT}/subvols/${flavor}/${subvol}"
 			done
 		done
@@ -547,8 +532,7 @@ phase_btrfs() {
 		for flavor in ${FLAVORS}; do
 			mkdir -p "${MOUNTPOINT}/snaps/${flavor}"
 			for subvol in \
-				@ \
-				@boot; do
+				@; do
 				btrfs subvolume create "${MOUNTPOINT}/snaps/${flavor}/${subvol}"
 			done
 		done

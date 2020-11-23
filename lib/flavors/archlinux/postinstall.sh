@@ -7,6 +7,7 @@ mountpseudofs "${MOUNTPOINT}"
 info "Creating additional needed rootfs directories"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
+		mkdir -p /.swap
 		mkdir -p /.btrfsroot
 		mkdir -p /.snaps
 		mkdir -p /boot/.snaps
@@ -117,24 +118,25 @@ info "Generating fstab"
 	# cmdchroot "genfstab -U / >> /etc/fstab"
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		cat <<-EOL > "/etc/fstab"
-			# /dev/mapper/cryptroot
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /.btrfsroot btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/ 0 0
+			# /dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /.btrfsroot btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/ 0 0
 		
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") / btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ 0 0
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /boot btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@boot 0 0
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /home btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/@home 0 0
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") / btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ 0 0
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /boot btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@boot 0 0
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /home btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/@home 0 0
 		
 		
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/archlinux/@ 0 0
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /boot/.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/archlinux/@boot 0 0
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /home/.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/@home 0 0
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/archlinux/@ 0 0
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /boot/.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/archlinux/@boot 0 0
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /home/.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/@home 0 0
 		
 			# $(partitionpath 2)
 			UUID=$(deviceuuid "$(partitionpath 2)") /boot/efi vfat rw,noatime,fmask=0077,dmask=0077,codepage=437,iocharset=iso8859-1,shortname=mixed,utf8,errors=remount-ro 0 2
 		
 		
-			# /dev/mapper/cryptswap
-			UUID=$(deviceuuid "/dev/mapper/cryptswap") swap swap defaults 0 0
+			# /.swap/swapfile
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /.swap btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/@swap 0 0
+			/.swap/swapfile none swap defaults 0 0
 		
 			# /proc with hidepid (https://wiki.archlinux.org/index.php/Security#hidepid)
 			# proc /proc proc nodev,noexec,nosuid,hidepid=2,gid=proc 0 0
@@ -148,13 +150,11 @@ info "Configuring crypttab"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		cat <<-EOL > "/etc/crypttab"
-			cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
-			cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
+			crypt-$(deviceuuid "$(partitionpath 3)") UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
 		EOL
 		
 		cat <<-EOL > "/etc/crypttab.initramfs"
-			cryptroot UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
-			cryptswap UUID=$(deviceuuid "$(partitionpath 4)") /boot/crypt.key discard
+			crypt-$(deviceuuid "$(partitionpath 3)") UUID=$(deviceuuid "$(partitionpath 3)") /boot/crypt.key discard
 		EOL
 	_EOL
 } >/dev/null 2>&1
@@ -163,10 +163,10 @@ info "Configuring mkinitcpio"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# systemd initramfs
-		# sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt openswap filesystems fsck\),g' /etc/mkinitcpio.conf
+		sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
 		
 		# busybox initramfs
-		sed -i 's,HOOKS=.*,HOOKS=\(base udev autodetect keyboard keymap consolefont modconf block encrypt openswap resume filesystems fsck\),g' /etc/mkinitcpio.conf
+		# sed -i 's,HOOKS=.*,HOOKS=\(base udev autodetect keyboard keymap consolefont modconf block encrypt resume filesystems fsck\),g' /etc/mkinitcpio.conf
 		
 		sed -i 's,MODULES=.*,MODULES=\(crc32c-intel i915\),g' /etc/mkinitcpio.conf
 		
@@ -174,9 +174,6 @@ info "Configuring mkinitcpio"
 		
 		# sed -i 's,FILES=.*,FILES=\(/boot/crypt.key /etc/crypttab\),g' /etc/mkinitcpio.conf
 		sed -i 's,FILES=.*,FILES=\(/boot/crypt.key /etc/modprobe.d/modprobe.conf\),g' /etc/mkinitcpio.conf
-		
-		sed -i 's,@@CRYPTSWAP_UUID@@,$(deviceuuid "$(partitionpath 4)"),g' /etc/initcpio/hooks/openswap
-		sed -i 's,@@CRYPTSWAP_UUID@@,$(deviceuuid "$(partitionpath 4)"),g' /etc/initcpio/install/openswap
 		
 		mkinitcpio -p linux
 	_EOL
@@ -186,12 +183,12 @@ info "Configuring grub"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# systemd initramfs
-		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot rd.luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap rd.luks.key=/boot/crypt.key rd.luks.options=discard resume=UUID=$(deviceuuid "/dev/mapper/cryptswap") loglevel=6"#g' /etc/default/grub
+		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") rd.luks.key=/boot/crypt.key rd.luks.options=discard loglevel=6"#g' /etc/default/grub
 		
-		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="luks.name=$(deviceuuid "$(partitionpath 3)")=cryptroot luks.name=$(deviceuuid "$(partitionpath 4)")=cryptswap luks.key=/boot/crypt.key luks.options=discard rootfstype=btrfs root=/dev/mapper/cryptroot rootflags=subvol=/subvols/archlinux/@ resume=/dev/mapper/cryptswap loglevel=6"#g' /etc/default/grub
+		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") luks.key=/boot/crypt.key luks.options=discard rootfstype=btrfs root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootflags=subvol=/subvols/archlinux/@ loglevel=6"#g' /etc/default/grub
 		
 		# busybox initramfs
-		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/cryptroot rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ cryptdevice=UUID=$(deviceuuid "$(partitionpath 3)"):cryptroot:allow-discards cryptkey=rootfs:/boot/crypt.key resume=/dev/mapper/cryptswap loglevel=6"#g' /etc/default/grub
+		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ cryptdevice=UUID=$(deviceuuid "$(partitionpath 3)"):crypt-$(deviceuuid "$(partitionpath 3)"):allow-discards cryptkey=rootfs:/boot/crypt.key loglevel=6"#g' /etc/default/grub
 		
 		grub-mkconfig -o /boot/grub/grub.cfg
 	_EOL
