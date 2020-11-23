@@ -21,8 +21,10 @@ swapsize() {
 	echo "x=l($(awk '/MemTotal/{printf "%s",  $2/1024/1024}' /proc/meminfo))/l(2); scale=0; 2^((x+0.5)/1)*2" | bc -l
 }
 
-mkswapfile() {
-
+resumeoffset() {
+	offset="$(./lib/common/files/usr/bin/btrfs-map-physical "${1}" | tail -1 | awk '{print $7}')"
+	pagesize="$(getconf PAGESIZE)"
+	echo "${offset}/${pagesize}" | bc
 }
 
 genpasswd() {
@@ -67,7 +69,6 @@ mountsubvol() {
 
 mountrootfs() {
 	mountsubvol "/subvols/${1}/@" "${2}"
-	mountsubvol "/subvols/${1}/@boot" "${2}/boot"
 	mountsubvol "/subvols/@home" "${2}/home"
 
 	if ! mountpoint -q "${2}/boot/efi"; then
@@ -78,7 +79,6 @@ mountrootfs() {
 
 unmountrootfs() {
 	unmount "${1}/boot/efi"
-	unmount "${1}/boot"
 	unmount "${1}/home"
 	unmount "${1}"
 }
@@ -300,7 +300,7 @@ defaults() {
 	: "${LUKS_PASSWORD:="${ROOT_PASSWORD}"}"
 	: "${GRUB_USER:="${USER}"}"
 	: "${GRUB_PASSWORD:="${ROOT_PASSWORD}"}"
-	: "${PHASES:="wipefs partition encrypt mkfs btrfs preinstall install postinstall"}"
+	: "${PHASES:="wipefs partition encrypt mkfs btrfs mkswapfile preinstall install postinstall"}"
 	: "${MOUNTPOINT:="/mnt/linbox"}"
 	: "${TMPDIR:="$(mktemp --directory --suffix ".linbox" 2>/dev/null || printf '%s' '/tmp/linbox')"}"
 	: "${DISABLE_HOST_ONLY:=""}"
@@ -489,24 +489,6 @@ phase_btrfs() {
 		done
 	} >/dev/null 2>&1
 
-	info "Preparing swapfile"
-	{
-		truncate -s 0 "${MOUNTPOINT}/subvols/@swap/swapfile"
-		chattr +C "${MOUNTPOINT}/subvols/@swap/swapfile"
-		btrfs property set "${MOUNTPOINT}/subvols/@swap/swapfile"
-		fallocate -l "${SWAPFILE_SIZE}" "${MOUNTPOINT}/subvols/@swap/swapfile"
-		chmod 600 "${MOUNTPOINT}/subvols/@swap/swapfile"
-		mkswap "${MOUNTPOINT}/subvols/@swap/swapfile"
-		swapon "${MOUNTPOINT}/subvols/@swap/swapfile"
-
-		# TODO: make function to calculate offset
-		# See: https://endeavouros.com/docs/encrypted-installation-2/btrfsonluks-quick-copypaste-version/
-		offset=$(lib/common/files/usr/bin/btrfs_map_physical "${MOUNTPOINT}/subvols/@swap/swapfile")
-		offset_arr=($(echo ${offset}))
-		offset_pagesize=($(getconf PAGESIZE))
-		offset=$((offset_arr[25] / offset_pagesize))
-	} >/dev/null 2>&1
-
 	info "Creating distro specific BTRFS live subvolumes"
 	{
 		for flavor in ${FLAVORS}; do
@@ -536,6 +518,25 @@ phase_btrfs() {
 				btrfs subvolume create "${MOUNTPOINT}/snaps/${flavor}/${subvol}"
 			done
 		done
+	} >/dev/null 2>&1
+
+	unmount "${MOUNTPOINT}"
+	closecrypt
+}
+
+phase_mkswapfile() {
+	opencrypt
+	mountsubvol "/" "${MOUNTPOINT}"
+
+	info "Creating swapfile (${MOUNTPOINT}/subvols/@swap/swapfile)"
+	{
+		truncate -s 0 "${MOUNTPOINT}/subvols/@swap/swapfile"
+		chattr +C "${MOUNTPOINT}/subvols/@swap/swapfile"
+		btrfs property set "${MOUNTPOINT}/subvols/@swap/swapfile" compression none
+		fallocate -l "${SWAPFILE_SIZE}" "${MOUNTPOINT}/subvols/@swap/swapfile"
+		chmod 600 "${MOUNTPOINT}/subvols/@swap/swapfile"
+		mkswap --label swap "${MOUNTPOINT}/subvols/@swap/swapfile"
+		# swapon "${MOUNTPOINT}/subvols/@swap/swapfile"
 	} >/dev/null 2>&1
 
 	unmount "${MOUNTPOINT}"

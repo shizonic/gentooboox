@@ -163,10 +163,10 @@ info "Configuring mkinitcpio"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# systemd initramfs
-		sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
+		# sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
 		
 		# busybox initramfs
-		# sed -i 's,HOOKS=.*,HOOKS=\(base udev autodetect keyboard keymap consolefont modconf block encrypt resume filesystems fsck\),g' /etc/mkinitcpio.conf
+		sed -i 's,HOOKS=.*,HOOKS=\(base udev autodetect keyboard keymap consolefont modconf block encrypt resume filesystems fsck\),g' /etc/mkinitcpio.conf
 		
 		sed -i 's,MODULES=.*,MODULES=\(crc32c-intel i915\),g' /etc/mkinitcpio.conf
 		
@@ -183,12 +183,12 @@ info "Configuring grub"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# systemd initramfs
-		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") rd.luks.key=/boot/crypt.key rd.luks.options=discard loglevel=6"#g' /etc/default/grub
+		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") rd.luks.key=/boot/crypt.key rd.luks.options=discard resume=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") resume_offset=$(resumeoffset "${MOUNTPOINT}/subvols/@swap/swapfile") loglevel=6"#g' /etc/default/grub
 		
-		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") luks.key=/boot/crypt.key luks.options=discard rootfstype=btrfs root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootflags=subvol=/subvols/archlinux/@ loglevel=6"#g' /etc/default/grub
+		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") luks.key=/boot/crypt.key luks.options=discard rootfstype=btrfs root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootflags=subvol=/subvols/archlinux/@ resume=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") resume_offset=$(resumeoffset "${MOUNTPOINT}/subvols/@swap/swapfile") loglevel=6"#g' /etc/default/grub
 		
 		# busybox initramfs
-		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ cryptdevice=UUID=$(deviceuuid "$(partitionpath 3)"):crypt-$(deviceuuid "$(partitionpath 3)"):allow-discards cryptkey=rootfs:/boot/crypt.key loglevel=6"#g' /etc/default/grub
+		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ cryptdevice=UUID=$(deviceuuid "$(partitionpath 3)"):crypt-$(deviceuuid "$(partitionpath 3)"):allow-discards cryptkey=rootfs:/boot/crypt.key resume=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") resume_offset=$(resumeoffset "${MOUNTPOINT}/subvols/@swap/swapfile") loglevel=6"#g' /etc/default/grub
 		
 		grub-mkconfig -o /boot/grub/grub.cfg
 	_EOL
