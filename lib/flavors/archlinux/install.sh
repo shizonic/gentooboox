@@ -7,6 +7,9 @@ mountpseudofs "${MOUNTPOINT}"
 info "Initialize pacman keyring"
 {
 	cmdchroot "pacman-key --init && pacman-key --populate"
+
+	# needed to be able to successfully unmount pseudofs
+	kill -9 "$(pidof gpg-agent)"
 } >/dev/null 2>&1
 
 info "Updating and installing packages"
@@ -66,10 +69,6 @@ info "Cleaning and finishing up"
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# root top dir permissions are wrong by default
 		chmod 755 /
-		
-		# needed to be able to successfully unmount pseudofs
-		pkill gpg-agent ||:
-		pkill dirmngr   ||:
 	_EOL
 } >/dev/null 2>&1
 

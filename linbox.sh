@@ -152,7 +152,7 @@ unmountpseudofs() {
 unmount() {
 	if mountpoint -q "${1}"; then
 		# umount "${1}" || umount -l "${1}" || :
-		umount "${1}"
+		umount -f "${1}"
 		sync
 	fi
 }
