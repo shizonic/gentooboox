@@ -9,9 +9,8 @@ info "Creating additional needed rootfs directories"
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		mkdir -p /.swap
 		mkdir -p /.btrfsroot
-		mkdir -p /.snaps
-		mkdir -p /boot/.snaps
-		mkdir -p /home/.snaps
+		mkdir -p /.snapshots
+		mkdir -p /home/.snapshots
 	_EOL
 } >/dev/null 2>&1
 
@@ -122,13 +121,11 @@ info "Generating fstab"
 			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /.btrfsroot btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/ 0 0
 		
 			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") / btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ 0 0
-			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /boot btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@boot 0 0
 			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /home btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/@home 0 0
 		
 		
-			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/archlinux/@ 0 0
-			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /boot/.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/archlinux/@boot 0 0
-			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /home/.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/@home 0 0
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /.snapshots btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/archlinux/@ 0 0
+			UUID=$(deviceuuid "/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)")") /home/.snapshots btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/@home 0 0
 		
 			# $(partitionpath 2)
 			UUID=$(deviceuuid "$(partitionpath 2)") /boot/efi vfat rw,noatime,fmask=0077,dmask=0077,codepage=437,iocharset=iso8859-1,shortname=mixed,utf8,errors=remount-ro 0 2
@@ -163,12 +160,12 @@ info "Configuring mkinitcpio"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# systemd initramfs
-		# sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
+		sed -i 's,HOOKS=.*,HOOKS=\(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck\),g' /etc/mkinitcpio.conf
 		
 		# busybox initramfs
-		sed -i 's,HOOKS=.*,HOOKS=\(base udev autodetect keyboard keymap consolefont modconf block encrypt resume filesystems fsck\),g' /etc/mkinitcpio.conf
+		# sed -i 's,HOOKS=.*,HOOKS=\(base udev autodetect keyboard keymap consolefont modconf block encrypt resume filesystems fsck\),g' /etc/mkinitcpio.conf
 		
-		sed -i 's,MODULES=.*,MODULES=\(crc32c-intel i915\),g' /etc/mkinitcpio.conf
+		# sed -i 's,MODULES=.*,MODULES=\(crc32c-intel i915\),g' /etc/mkinitcpio.conf
 		
 		sed -i 's,BINARIES=.*,BINARIES=\(/usr/bin/btrfs\),g' /etc/mkinitcpio.conf
 		
@@ -183,12 +180,12 @@ info "Configuring grub"
 {
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		# systemd initramfs
-		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") rd.luks.key=/boot/crypt.key rd.luks.options=discard resume=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") resume_offset=$(resumeoffset "${MOUNTPOINT}/subvols/@swap/swapfile") loglevel=6"#g' /etc/default/grub
+		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ rd.luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") rd.luks.key=$(deviceuuid "$(partitionpath 3)")=/boot/crypt.key rd.luks.options=discard resume=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") resume_offset=${LINBOX_RESUME_OFFSET} loglevel=6 rw=1 slub_debug=FZP page_poison=1 slab_nomerge=1 pti=on mce=0 mitigations=auto printk.time=1 nmi_watchdog=0 intel_iommu=off net.ifnames=0"#g' /etc/default/grub
 		
-		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") luks.key=/boot/crypt.key luks.options=discard rootfstype=btrfs root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootflags=subvol=/subvols/archlinux/@ resume=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") resume_offset=$(resumeoffset "${MOUNTPOINT}/subvols/@swap/swapfile") loglevel=6"#g' /etc/default/grub
+		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="luks.name=$(deviceuuid "$(partitionpath 3)")=crypt-$(deviceuuid "$(partitionpath 3)") luks.key=/boot/crypt.key luks.options=discard rootfstype=btrfs root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootflags=subvol=/subvols/archlinux/@ resume=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") resume_offset=${LINBOX_RESUME_OFFSET} loglevel=6 rw=1 slub_debug=FZP page_poison=1 slab_nomerge=1 pti=on mce=0 mitigations=auto printk.time=1 nmi_watchdog=0 intel_iommu=off net.ifnames=0"#g' /etc/default/grub
 		
 		# busybox initramfs
-		sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ cryptdevice=UUID=$(deviceuuid "$(partitionpath 3)"):crypt-$(deviceuuid "$(partitionpath 3)"):allow-discards cryptkey=rootfs:/boot/crypt.key resume=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") resume_offset=$(resumeoffset "${MOUNTPOINT}/subvols/@swap/swapfile") loglevel=6"#g' /etc/default/grub
+		# sed -i 's#GRUB_CMDLINE_LINUX=.*#GRUB_CMDLINE_LINUX="root=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") rootfstype=btrfs rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/archlinux/@ cryptdevice=UUID=$(deviceuuid "$(partitionpath 3)"):crypt-$(deviceuuid "$(partitionpath 3)"):allow-discards cryptkey=rootfs:/boot/crypt.key resume=/dev/mapper/crypt-$(deviceuuid "$(partitionpath 3)") resume_offset=${LINBOX_RESUME_OFFSET} loglevel=6 rw=1 slub_debug=FZP page_poison=1 slab_nomerge=1 pti=on mce=0 mitigations=auto printk.time=1 nmi_watchdog=0 intel_iommu=off net.ifnames=0"#g' /etc/default/grub
 		
 		grub-mkconfig -o /boot/grub/grub.cfg
 	_EOL

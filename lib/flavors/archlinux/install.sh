@@ -61,6 +61,9 @@ info "Installing grub bootloader"
 		
 		mkdir -p /boot/grub/locale
 		cp -f /usr/share/locale/en@quot/LC_MESSAGES/grub.mo /boot/grub/locale/en.mo
+		
+		# fix virtualbox uefi
+		# echo "fs0:\EFI\BOOT\BOOTX64.EFI" >> /boot/efi/startup.nsh
 	_EOL
 } >/dev/null 2>&1
 

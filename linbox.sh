@@ -536,6 +536,8 @@ phase_mkswapfile() {
 		fallocate -l "${SWAPFILE_SIZE}" "${MOUNTPOINT}/subvols/@swap/swapfile"
 		chmod 600 "${MOUNTPOINT}/subvols/@swap/swapfile"
 		mkswap --label swap "${MOUNTPOINT}/subvols/@swap/swapfile"
+		LINBOX_RESUME_OFFSET="$(resumeoffset "${MOUNTPOINT}/subvols/@swap/swapfile")"
+		export LINBOX_RESUME_OFFSET
 		# swapon "${MOUNTPOINT}/subvols/@swap/swapfile"
 	} >/dev/null 2>&1
 
