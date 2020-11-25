@@ -134,16 +134,16 @@ info "Generating fstab"
 	cat <<-_EOL | chroot "${MOUNTPOINT}" /bin/sh
 		cat <<-EOL > "/etc/fstab"
 			# /dev/mapper/cryptroot
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /.btrfsroot btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/ 0 0
+			UUID=$(deviceuuid "/dev/mapper/cryptroot") /.btrfsroot btrfs rw,noatime,compress=zstd,ssd,discard,space_cache,subvol=/ 0 0
 		
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") / btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/voidlinux/@ 0 0
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /boot btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/voidlinux/@boot 0 0
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /home btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/subvols/@home 0 0
+			UUID=$(deviceuuid "/dev/mapper/cryptroot") / btrfs rw,noatime,compress=zstd,ssd,discard,space_cache,subvol=/subvols/voidlinux/@ 0 0
+			UUID=$(deviceuuid "/dev/mapper/cryptroot") /boot btrfs rw,noatime,compress=zstd,ssd,discard,space_cache,subvol=/subvols/voidlinux/@boot 0 0
+			UUID=$(deviceuuid "/dev/mapper/cryptroot") /home btrfs rw,noatime,compress=zstd,ssd,discard,space_cache,subvol=/subvols/@home 0 0
 		
 		
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/voidlinux/@ 0 0
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /boot/.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/voidlinux/@boot 0 0
-			UUID=$(deviceuuid "/dev/mapper/cryptroot") /home/.snaps btrfs rw,noatime,compress=lzo,ssd,discard,space_cache,subvol=/snaps/@home 0 0
+			UUID=$(deviceuuid "/dev/mapper/cryptroot") /.snaps btrfs rw,noatime,compress=zstd,ssd,discard,space_cache,subvol=/snaps/voidlinux/@ 0 0
+			UUID=$(deviceuuid "/dev/mapper/cryptroot") /boot/.snaps btrfs rw,noatime,compress=zstd,ssd,discard,space_cache,subvol=/snaps/voidlinux/@boot 0 0
+			UUID=$(deviceuuid "/dev/mapper/cryptroot") /home/.snaps btrfs rw,noatime,compress=zstd,ssd,discard,space_cache,subvol=/snaps/@home 0 0
 		
 			# $(partitionpath 2)
 			UUID=$(deviceuuid "$(partitionpath 2)") /boot/efi vfat rw,noatime,fmask=0077,dmask=0077,codepage=437,iocharset=iso8859-1,shortname=mixed,utf8,errors=remount-ro 0 2
@@ -233,7 +233,7 @@ info "Configuring dracut"
 			# CMDLINE : ROOT
 			##
 			kernel_cmdline+=" rootfstype=btrfs root=UUID=$(deviceuuid "$(partitionpath 3)") "
-			kernel_cmdline+=" rootflags=rw,noatime,compress=lzo,ssd,discard,space_cache "
+			kernel_cmdline+=" rootflags=rw,noatime,compress=zstd,ssd,discard,space_cache "
 			kernel_cmdline+=" resume=UUID=$(deviceuuid "/dev/mapper/cryptswap") "
 		
 			#####################################

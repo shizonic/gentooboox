@@ -55,7 +55,7 @@ closecrypt() {
 }
 
 mountsubvol() {
-	mount_opts="compress=lzo,noatime,rw,space_cache,ssd,discard,subvol=${1}"
+	mount_opts="compress=zstd,noatime,rw,space_cache,ssd,discard,subvol=${1}"
 
 	mkdir -p "${2}"
 	if ! mountpoint -q "${2}"; then
